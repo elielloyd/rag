@@ -1,0 +1,45 @@
+{
+    "vehicle_info": {
+      "vin": "WA1EAAFY6P2034636",
+      "make": "AUDI",
+      "model": "Q5 PROGRESSIV 45 2.0 TFSI 4P TI",
+      "year": 2023,
+      "body_type": "Sedan"
+    },
+    "side": "Right",
+    "images": [
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/d8c25073-f4fc-4f26-9306-c809b1aa7d76.jpeg",
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/b35dbc5c-1a3a-431e-a7f0-11bb6af16357.jpeg",
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/7e26eb5f-3fc0-465b-933f-c4e69ca97c73.jpeg"
+    ],
+    "damage_descriptions": [
+      {
+        "location": "Front Right",
+        "part": "Front Bumper",
+        "severity": "Medium",
+        "type": "Scuffing and Scratches",
+        "start_position": "Below headlight assembly",
+        "end_position": "Bottom corner lip/chin",
+        "description": "The front right fascia exhibits multiple areas of damage. Faint horizontal scratches are visible between the headlight and the fog light housing. Lower down, a vertical cluster of abrasion marks and whitish-grey scuffs sits near the side air intake, extending into rough scraping and paint loss along the bottom leading edge and corner lip."
+      },
+      {
+        "location": "Front Right",
+        "part": "Wheel (Rim)",
+        "severity": "Minor",
+        "type": "Curb Rash",
+        "start_position": "Outer rim edge (7 o'clock)",
+        "end_position": "Outer rim edge (8 o'clock)",
+        "description": "The outer flange of the alloy wheel exhibits curb rash, with a section of rough abrasion scraping the metal finish on the lower-left side."
+      }
+    ],
+    "merged_damage_description": "The vehicle displays impact and abrasion damage concentrated on both front corners. The front right side shows a combination of minor scratches below the headlight and more pronounced scuffing and paint loss along the lower bumper corner and intake area. Additionally, the front right alloy wheel features minor curb rash along its outer lower edge.",
+    "approved_estimate": {
+      "Front Fender": [
+        {
+          "Description": "R Fender Adhesive Wheel Opening Mldg",
+          "Operation": "Repair",
+          "LabourHours": 1.5
+        }
+      ]
+    }
+  }

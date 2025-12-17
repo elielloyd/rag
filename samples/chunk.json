@@ -1,0 +1,95 @@
+{
+    "vehicle_info": {
+      "vin": "WA1EAAFY6P2034636",
+      "make": "AUDI",
+      "model": "Q5 PROGRESSIV 45 2.0 TFSI 4P TI",
+      "year": 2023,
+      "body_type": "Sedan"
+    },
+    "side": "Front",
+    "images": [
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/d8c25073-f4fc-4f26-9306-c809b1aa7d76.jpeg",
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/b35dbc5c-1a3a-431e-a7f0-11bb6af16357.jpeg",
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/7b95ecc9-d4c0-44c6-8c04-a36cad8972f4.jpeg",
+      "s3://trueclaim/claims/e57b4fd0-1760-4306-88ef-36f7eca92a34/est/InputImages/7e26eb5f-3fc0-465b-933f-c4e69ca97c73.jpeg"
+    ],
+    "damage_descriptions": [
+      {
+        "location": "Front Right Corner",
+        "part": "Front Bumper Cover",
+        "severity": "Medium",
+        "type": "Scuffing, Scratches, and Gouging",
+        "start_position": "Below headlight assembly/hood line",
+        "end_position": "Bottom lip/valance edge",
+        "description": "A vertical area of extensive abrasive damage spanning from just below the headlight down to the bottom lip. The damage includes dense clusters of horizontal scuffs and deep scratches that have removed paint layers to reveal white primer or raw plastic. The bottom edge exhibits rougher gouging and scraping consistent with curb contact."
+      },
+      {
+        "location": "Front Right Wheel Arch",
+        "part": "Wheel Arch Molding",
+        "severity": "Medium",
+        "type": "Deep Scratch/Roughness",
+        "start_position": "Top curve of wheel arch",
+        "end_position": "Bottom edge of molding",
+        "description": "The plastic cladding is heavily scuffed with deep linear gouges running parallel to the wheel. The impact has caused stress marks, turning the dark grey material to a chalky white along the impact zone."
+      },
+      {
+        "location": "Inside Front Right Wheel Well",
+        "part": "Fender Liner",
+        "severity": "Medium",
+        "type": "Broken/Shattered",
+        "start_position": "Rear vertical face",
+        "end_position": "Bottom hanging edge",
+        "description": "The black plastic splash shield is cracked and shattered. A jagged piece is detached from its mounting and protrudes outward toward the tire tread."
+      },
+      {
+        "location": "Front Right Wheel",
+        "part": "Alloy Wheel",
+        "severity": "Medium",
+        "type": "Scuffing / Curb Rash",
+        "start_position": "Bottom rim edge (6 o'clock)",
+        "end_position": "Left rim edge (9 o'clock)",
+        "description": "Distinct curb rash along the outer perimeter lip extending onto the machined faces of the spokes, most severe in the lower-left quadrant where the finish is roughly abraded."
+      },
+      {
+        "location": "Front Left Corner",
+        "part": "Front Bumper Cover",
+        "severity": "Medium",
+        "type": "Scuffing, Scratches, and Dent",
+        "start_position": "Below headlight assembly",
+        "end_position": "Fog light housing area",
+        "description": "A dense cluster of horizontal abrasive scuffs scraping through the clear coat to the primer. This is accompanied by a visible depression and surface distortion (dent) in the panel immediately to the left of the fog light housing."
+      },
+      {
+        "location": "Front Left Lower Edge",
+        "part": "Lower Bumper Lip / Valance",
+        "severity": "Medium",
+        "type": "Crack / Split",
+        "start_position": "Bottom corner below fog light",
+        "end_position": "Curving along bottom edge",
+        "description": "A structural crack or split in the lower plastic material with associated paint flaking and jagged edges, indicating impact at the lowest clearance point."
+      },
+      {
+        "location": "Front Left Fog Light Area",
+        "part": "Fog Light Bezel",
+        "severity": "Minor",
+        "type": "Misalignment/Scuffing",
+        "start_position": "Outer black frame perimeter",
+        "end_position": "Junction with bumper cover",
+        "description": "The black glossy plastic trim appears slightly misaligned or pulled away from the bumper at the bottom corner, showing signs of minor surface impact."
+      }
+    ],
+    "merged_damage_description": "The vehicle exhibits multiple points of damage concentrated on the front corners and lower trim. On the front right, the bumper cover sustains medium severity scuffing and scratching extending from the headlight down to the lower valance, which is gouged. This damage continues onto the front right wheel arch molding, which is deeply scratched, and the inner fender liner, which is shattered and detached. The front right alloy wheel also displays distinct curb rash. On the front left side, the bumper cover features abrasive scuffs below the headlight and a visible dent near the fog light housing. The left fog light bezel is slightly misaligned, and the lower bumper lip contains a structural crack or split at the bottom edge.",
+    "approved_estimate": {
+      "Front Bumper": [
+        {"Description": "Frt Bumper Cover", "Operation": "Remove / Install"},
+        {"Description": "Frt Bumper Cover Assy", "Operation": "Overhaul"},
+        {
+          "Description": "Frt Bumper Cover Assy",
+          "Operation": "Repair",
+          "LaborHours": 3
+        },
+        {"Description": "R Frt Bumper Grille", "Operation": "Remove / Replace"},
+        {"Description": "R Frt Bumper Spoiler", "Operation": "Remove / Replace"}
+      ]
+    }
+  }

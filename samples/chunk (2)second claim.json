@@ -1,0 +1,61 @@
+{
+    "vehicle_info": {
+      "vin": "4S4BTDNC3L3195200",
+      "make": "SUBARU",
+      "model": "OUTBACK 2.5i LIMITED FAMILIALE TI",
+      "year": 2020,
+      "body_type": "Sedan"
+    },
+    "side": "Left",
+    "images": [
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/af787c1a-c89a-4c0d-ade8-cff3731bfd65.jpeg",
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/91c0e141-d7dd-4e52-8dc3-28adfd6e12bc.jpeg",
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/3379f29a-a516-4f14-aeee-97777e693c53.jpeg",
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/11595b3d-1f86-4d6d-9d1e-547015464420.jpeg",
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/2b77d545-a1b9-413e-a7e1-3883fe38d6d2.jpeg",
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/0be7ae45-f870-406b-b1f7-01aaf229ba1a.jpeg",
+      "s3://trueclaim/claims/2a4ebb1d-820a-4040-821b-bd62c2d1a62e/est/InputImages/150db621-efbc-4de8-90f4-646fd946d957.jpeg"
+    ],
+    "damage_descriptions": [
+      {
+        "location": "Rear Right Corner",
+        "part": "Rear Bumper Lower Cladding (Textured Plastic)",
+        "severity": "Major",
+        "type": "Dent & Scuffing",
+        "start_position": "Upper seam of the textured plastic",
+        "end_position": "Bottom edge surrounding the vertical reflector",
+        "description": "There is significant structural deformation characterized by a deep concave depression where the unpainted black plastic has collapsed inward. This major dent distorts the natural curve of the corner, causing the vertical red reflector to be displaced inward and warping the adjacent horizontal styling ribs. Extensive light grey and white abrasion marks overlay the indented surface, indicating strong friction contact during the impact."
+      },
+      {
+        "location": "Rear Right Upper Corner",
+        "part": "Rear Bumper Cover (Painted Section)",
+        "severity": "Medium",
+        "type": "Scratches & Scuffing",
+        "start_position": "Immediately below the right tail light assembly",
+        "end_position": "Horizontal seam meeting the lower unpainted cladding",
+        "description": "Multiple horizontal scratches and abrasive scuff marks are visible on the painted grey surface. These marks appear as erratic white streaks cutting through the clear coat, concentrated vertically between the tail light and the damaged lower cladding section. There is also scuffing visible along the vertical body line meeting the quarter panel."
+      },
+      {
+        "location": "Rear Left Corner",
+        "part": "Rear Bumper Lower Cladding (Textured Plastic)",
+        "severity": "Minor",
+        "type": "Scuffing",
+        "start_position": "Curved outer section of the bumper corner",
+        "end_position": "Adjacent to the left vertical red reflector",
+        "description": "Visible surface abrasion and scuffing are present on the black unpainted plastic. The damage manifests as a cluster of diagonal, whitish-grey scratches and rub marks located on the rounded contour of the bumper corner, roughening the texture of the plastic."
+      }
+    ],
+    "merged_damage_description": "The vehicle presents damage concentrated on the rear bumper assembly, affecting both corners. The most severe damage is located on the rear right corner, where the lower textured plastic cladding has sustained a major impact resulting in a deep, concave dent. This deformation has collapsed the plastic structure, displaced the red reflector, warped the surrounding trim ribs, and left extensive surface scuffing. Directly above this area, the painted upper section of the rear right bumper exhibits distinct horizontal scratches and scuffs extending from below the tail light down to the cladding seam. Additionally, the rear left corner of the bumper shows minor damage, characterized by a cluster of diagonal surface abrasions and scuff marks on the unpainted textured plastic.",
+    "merged_damage_description_embedding": [
+      0.012,
+      0.234
+    ],
+    "approved_estimate": {
+      "Rear Bumper": [
+        {
+          "Description": "Rear Bumper Cover",
+          "Operation": "Remove / Replace"
+        }
+      ]
+    }
+  }
