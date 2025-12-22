@@ -68,6 +68,7 @@ class S3Service:
             response = self.client.get_object(Bucket=bucket, Key=key)
             image_data = response['Body'].read()
             content_type = response.get('ContentType', 'image/jpeg')
+            content_type = 'image/jpeg' if content_type == 'application/octet-stream' else content_type
             return image_data, content_type
         except ClientError as e:
             raise Exception(f"Failed to download image from S3: {e}")
