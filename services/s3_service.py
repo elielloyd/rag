@@ -114,6 +114,29 @@ class S3Service:
         bucket, prefix = self.parse_s3_url(s3_folder_url)
         return self.list_images_in_folder(bucket, prefix)
     
+    def get_json(self, s3_url: str) -> dict:
+        """
+        Download and parse a JSON file from S3.
+        
+        Args:
+            s3_url: S3 URL of the JSON file
+        
+        Returns:
+            Parsed JSON as a dictionary
+        """
+        import json
+        
+        bucket, key = self.parse_s3_url(s3_url)
+        
+        try:
+            response = self.client.get_object(Bucket=bucket, Key=key)
+            json_data = response['Body'].read().decode('utf-8')
+            return json.loads(json_data)
+        except ClientError as e:
+            raise Exception(f"Failed to download JSON from S3: {e}")
+        except json.JSONDecodeError as e:
+            raise Exception(f"Failed to parse JSON from S3: {e}")
+    
     def is_configured(self) -> bool:
         """Check if the S3 service is properly configured."""
         return bool(settings.aws_access_key_id and settings.aws_secret_access_key)

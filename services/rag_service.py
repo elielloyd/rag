@@ -1,0 +1,542 @@
+"""Service for RAG (Retrieval Augmented Generation) pipeline."""
+
+import base64
+import time
+from typing import Optional, Literal
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.messages import HumanMessage
+from pydantic import BaseModel, Field
+
+from config import settings
+from models.vehicle_damage import VehicleInfo, DamageDescription
+from models.rag_models import (
+    DamageDetectionResult,
+    RetrievedChunk,
+    RAGEstimateRequest,
+    RAGEstimateResponse,
+    GeneratedEstimate,
+    DamageDetectionResponse,
+)
+from prompts.rag_prompts import (
+    get_damage_detection_prompt,
+    get_damage_detection_with_context_prompt,
+    get_estimate_generation_prompt,
+)
+from services.s3_service import S3Service
+from services.qdrant_service import QdrantService
+
+import os
+
+os.environ['LANGSMITH_TRACING'] = 'true'
+os.environ['LANGSMITH_ENDPOINT'] = 'https://api.smith.langchain.com'
+os.environ['LANGSMITH_API_KEY'] = settings.langsmith_api_key
+os.environ['LANGSMITH_PROJECT'] = settings.langsmith_project or 'default'
+
+
+class DamageDetectionOutput(BaseModel):
+    """Structured output for damage detection."""
+    side: Literal["front", "rear", "left", "right", "roof", "unknown"] = Field(
+        description="Detected side of the vehicle"
+    )
+    has_damage: bool = Field(
+        description="Whether damage was detected in the image"
+    )
+    confidence: float = Field(
+        description="Confidence score for the detection (0-1)"
+    )
+    damages: list[dict] = Field(
+        default_factory=list,
+        description="List of detected damages with location, part, severity, type, start_position, end_position, description"
+    )
+
+
+class EstimateOperationOutput(BaseModel):
+    """Single operation in the estimate output."""
+    Description: str = Field(description="Part or operation description")
+    Operation: str = Field(description="Type of operation")
+    LaborHours: Optional[float] = Field(default=None, description="Labor hours - only for Repair operations")
+
+
+class EstimateOutput(BaseModel):
+    """Structured output for estimate generation in approved_estimate format."""
+    estimate: dict[str, list[dict]] = Field(
+        description="Estimate operations grouped by part category"
+    )
+
+
+class RAGService:
+    """Service for RAG-based damage estimation pipeline."""
+    
+    def __init__(self):
+        """Initialize the RAG service with required components."""
+        if not settings.gemini_api_key:
+            raise ValueError("GEMINI_API_KEY is not configured")
+        
+        # Initialize Gemini model for damage detection
+        self.model = ChatGoogleGenerativeAI(
+            model=settings.gemini_model,
+            api_key=settings.gemini_api_key,
+            temperature=1.0,
+            media_resolution="MEDIA_RESOLUTION_HIGH",
+        )
+        
+        # Structured output models
+        self.damage_detection_model = self.model.with_structured_output(
+            schema=DamageDetectionOutput,
+            method="json_schema",
+        )
+        self.estimate_model = self.model.with_structured_output(
+            schema=EstimateOutput,
+            method="json_schema",
+        )
+        
+        # Initialize services
+        self.s3_service = S3Service()
+        self.qdrant_service = QdrantService()
+    
+    def detect_damage_single_image(
+        self,
+        image_data: bytes,
+        mime_type: str,
+        s3_url: str,
+        vehicle_info: Optional[VehicleInfo] = None,
+        human_description: Optional[str] = None,
+    ) -> DamageDetectionResult:
+        """
+        Detect damage in a single image.
+        
+        Args:
+            image_data: Raw image bytes
+            mime_type: MIME type of the image
+            s3_url: S3 URL of the image
+            vehicle_info: Optional vehicle information for context
+            human_description: Optional human-provided damage description
+        
+        Returns:
+            DamageDetectionResult with detected damages
+        """
+        # Get appropriate prompt
+        if vehicle_info:
+            prompt = get_damage_detection_with_context_prompt(
+                year=vehicle_info.year,
+                make=vehicle_info.make,
+                model=vehicle_info.model,
+                body_type=vehicle_info.body_type,
+                human_description=human_description,
+            )
+        else:
+            prompt = get_damage_detection_prompt()
+        
+        # Encode image
+        image_base64 = base64.b64encode(image_data).decode('utf-8')
+        
+        # Create message with image
+        message = HumanMessage(
+            content=[
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image",
+                    "base64": image_base64,
+                    "mime_type": mime_type,
+                },
+            ]
+        )
+        
+        # Get detection result
+        result: DamageDetectionOutput = self.damage_detection_model.invoke([message])
+        
+        # Convert damages to DamageDescription objects
+        damages = []
+        for damage_dict in result.damages:
+            try:
+                damages.append(DamageDescription(
+                    location=damage_dict.get('location', 'Unknown'),
+                    part=damage_dict.get('part', 'Unknown'),
+                    severity=damage_dict.get('severity', 'Unknown'),
+                    type=damage_dict.get('type', 'Unknown'),
+                    start_position=damage_dict.get('start_position', 'N/A'),
+                    end_position=damage_dict.get('end_position', 'N/A'),
+                    description=damage_dict.get('description', ''),
+                ))
+            except Exception as e:
+                print(f"Warning: Could not parse damage: {e}")
+        
+        return DamageDetectionResult(
+            image_url=s3_url,
+            has_damage=result.has_damage,
+            side=result.side,
+            damages=damages,
+            confidence=result.confidence,
+        )
+    
+    def _detect_damage_worker(
+        self,
+        s3_url: str,
+        vehicle_info: Optional[VehicleInfo] = None,
+        human_description: Optional[str] = None,
+    ) -> DamageDetectionResult:
+        """Worker function for parallel damage detection."""
+        try:
+            image_data, mime_type = self.s3_service.get_image(s3_url)
+            return self.detect_damage_single_image(
+                image_data=image_data,
+                mime_type=mime_type,
+                s3_url=s3_url,
+                vehicle_info=vehicle_info,
+                human_description=human_description,
+            )
+        except Exception as e:
+            print(f"Error detecting damage in {s3_url}: {e}")
+            return DamageDetectionResult(
+                image_url=s3_url,
+                has_damage=False,
+                side="unknown",
+                damages=[],
+                confidence=0.0,
+            )
+    
+    def detect_damage_batch(
+        self,
+        bucket_url: Optional[str] = None,
+        image_urls: Optional[list[str]] = None,
+        vehicle_info: Optional[VehicleInfo] = None,
+        human_description: Optional[str] = None,
+        max_workers: int = 10,
+    ) -> DamageDetectionResponse:
+        """
+        Detect damage in multiple images.
+        
+        Args:
+            bucket_url: S3 bucket URL containing images
+            image_urls: Optional list of specific image URLs
+            vehicle_info: Optional vehicle information
+            human_description: Optional human-provided description
+            max_workers: Maximum parallel workers
+        
+        Returns:
+            DamageDetectionResponse with all detection results
+        """
+        start_time = time.time()
+        
+        try:
+            # Get image URLs
+            if image_urls:
+                all_image_urls = image_urls
+            elif bucket_url:
+                all_image_urls = self.s3_service.list_images_from_url(bucket_url)
+            else:
+                return DamageDetectionResponse(
+                    success=False,
+                    error="Either bucket_url or image_urls must be provided",
+                    processing_time_seconds=time.time() - start_time,
+                )
+            
+            if not all_image_urls:
+                return DamageDetectionResponse(
+                    success=False,
+                    error="No images found",
+                    processing_time_seconds=time.time() - start_time,
+                )
+            
+            # Detect damage in parallel
+            detections: list[DamageDetectionResult] = []
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        self._detect_damage_worker,
+                        s3_url,
+                        vehicle_info,
+                        human_description,
+                    ): s3_url
+                    for s3_url in all_image_urls
+                }
+                
+                for future in as_completed(futures):
+                    result = future.result()
+                    detections.append(result)
+            
+            # Count images with damage
+            images_with_damage = sum(1 for d in detections if d.has_damage)
+            
+            # Create merged description
+            all_damages = []
+            for detection in detections:
+                all_damages.extend(detection.damages)
+            
+            merged_description = self._merge_damage_descriptions(all_damages, vehicle_info)
+            
+            return DamageDetectionResponse(
+                success=True,
+                total_images=len(all_image_urls),
+                images_with_damage=images_with_damage,
+                detections=detections,
+                merged_damage_description=merged_description,
+                processing_time_seconds=time.time() - start_time,
+            )
+            
+        except Exception as e:
+            return DamageDetectionResponse(
+                success=False,
+                error=str(e),
+                processing_time_seconds=time.time() - start_time,
+            )
+    
+    def _merge_damage_descriptions(
+        self,
+        damages: list[DamageDescription],
+        vehicle_info: Optional[VehicleInfo] = None,
+    ) -> str:
+        """Create a merged narrative from all damage descriptions."""
+        if not damages:
+            return "No visible damage detected."
+        
+        # Group damages by part
+        damages_by_part = {}
+        for damage in damages:
+            part = damage.part
+            if part not in damages_by_part:
+                damages_by_part[part] = []
+            damages_by_part[part].append(damage)
+        
+        # Build narrative
+        parts = []
+        for part, part_damages in damages_by_part.items():
+            severities = [d.severity for d in part_damages]
+            types = list(set(d.type for d in part_damages))
+            max_severity = "Major" if "Major" in severities else ("Medium" if "Medium" in severities else "Minor")
+            parts.append(f"{part} ({max_severity} {', '.join(types)})")
+        
+        vehicle_str = ""
+        if vehicle_info:
+            vehicle_str = f"The {vehicle_info.year} {vehicle_info.make} {vehicle_info.model} shows "
+        else:
+            vehicle_str = "The vehicle shows "
+        
+        return vehicle_str + "damage to: " + "; ".join(parts) + "."
+    
+    def retrieve_similar_chunks(
+        self,
+        damage_description: str,
+        top_k: int = 5,
+        score_threshold: Optional[float] = 0.5,
+    ) -> list[RetrievedChunk]:
+        """
+        Retrieve similar damage chunks from Qdrant.
+        
+        Args:
+            damage_description: The damage description to search for
+            top_k: Number of results to retrieve
+            score_threshold: Minimum similarity score
+        
+        Returns:
+            List of RetrievedChunk objects
+        """
+        if not self.qdrant_service.is_connected():
+            print("Warning: Qdrant is not connected")
+            return []
+        
+        try:
+            results = self.qdrant_service.search(
+                query=damage_description,
+                limit=top_k,
+                score_threshold=score_threshold,
+            )
+            
+            chunks = []
+            for result in results:
+                payload = result.get('payload', {})
+                chunks.append(RetrievedChunk(
+                    score=result.get('score', 0.0),
+                    content=payload.get('content', ''),
+                    vehicle_info=payload.get('vehicle_info', {}),
+                    side=payload.get('side', 'unknown'),
+                    damage_descriptions=payload.get('damage_descriptions', []),
+                    approved_estimate=payload.get('approved_estimate', {}),
+                ))
+            
+            return chunks
+            
+        except Exception as e:
+            print(f"Error retrieving chunks: {e}")
+            return []
+    
+    def generate_estimate(
+        self,
+        damage_descriptions: list[DamageDescription],
+        retrieved_chunks: list[RetrievedChunk],
+        vehicle_info: Optional[VehicleInfo] = None,
+        human_description: Optional[str] = None,
+        pss_data: Optional[dict] = None,
+    ) -> GeneratedEstimate:
+        """
+        Generate an estimate based on damage and retrieved chunks.
+        
+        Args:
+            damage_descriptions: Detected damages
+            retrieved_chunks: Similar chunks from Qdrant
+            vehicle_info: Vehicle information
+            human_description: Human-provided description
+            pss_data: Parts and Service Standards data
+        
+        Returns:
+            GeneratedEstimate object
+        """
+        # Convert damages to dict format
+        damage_dicts = [d.model_dump() for d in damage_descriptions]
+        
+        # Convert chunks to dict format
+        chunk_dicts = [
+            {
+                'score': c.score,
+                'content': c.content,
+                'vehicle_info': c.vehicle_info,
+                'side': c.side,
+                'approved_estimate': c.approved_estimate,
+            }
+            for c in retrieved_chunks
+        ]
+        
+        # Get prompt - always use the full prompt
+        prompt = get_estimate_generation_prompt(
+            vehicle_info=vehicle_info.model_dump() if vehicle_info else None,
+            damage_descriptions=damage_dicts,
+            human_description=human_description,
+            retrieved_chunks=chunk_dicts,
+            pss_data=pss_data,
+        )
+        
+        # Generate estimate
+        message = HumanMessage(content=prompt)
+        result: EstimateOutput = self.estimate_model.invoke([message])
+        
+        # Convert to EstimateOperation objects and build the estimate dict
+        from models.rag_models import EstimateOperation
+        
+        estimate_dict = {}
+        for category, operations in result.estimate.items():
+            estimate_dict[category] = []
+            for op in operations:
+                # Only include LaborHours if Operation is "Repair"
+                labor_hours = op.get('LaborHours') if op.get('Operation') == 'Repair' else None
+                estimate_dict[category].append(
+                    EstimateOperation(
+                        Description=op.get('Description', 'Unknown'),
+                        Operation=op.get('Operation', 'Unknown'),
+                        LaborHours=labor_hours,
+                    )
+                )
+        
+        return GeneratedEstimate(estimate=estimate_dict)
+    
+    def run_rag_pipeline(
+        self,
+        request: RAGEstimateRequest,
+    ) -> RAGEstimateResponse:
+        """
+        Run the complete RAG pipeline for estimate generation.
+        
+        Flow:
+        1. Fetch images from S3
+        2. Detect damage in images using Gemini
+        3. Filter images with damage
+        4. Retrieve similar chunks from Qdrant
+        5. Generate estimate using retrieved chunks + PSS data
+        
+        Args:
+            request: RAGEstimateRequest with all input parameters
+        
+        Returns:
+            RAGEstimateResponse with complete results
+        """
+        start_time = time.time()
+        
+        try:
+            # Fetch PSS data from S3 if URL provided
+            pss_data = None
+            if request.pss_url:
+                try:
+                    pss_data = self.s3_service.get_json(request.pss_url)
+                except Exception as e:
+                    print(f"Warning: Failed to fetch PSS data from {request.pss_url}: {e}")
+            
+            # Step 1 & 2: Detect damage in images
+            detection_response = self.detect_damage_batch(
+                bucket_url=request.bucket_url,
+                vehicle_info=request.vehicle_info,
+                human_description=request.damage_description,
+            )
+            
+            if not detection_response.success:
+                return RAGEstimateResponse(
+                    success=False,
+                    error=detection_response.error,
+                    processing_time_seconds=time.time() - start_time,
+                )
+            
+            # Step 3: Filter to images with damage
+            images_with_damage = [
+                d for d in detection_response.detections if d.has_damage
+            ]
+            
+            if not images_with_damage:
+                return RAGEstimateResponse(
+                    success=True,
+                    images_analyzed=detection_response.total_images,
+                    images_with_damage=0,
+                    damage_detections=detection_response.detections,
+                    retrieved_chunks=[],
+                    generated_estimate=GeneratedEstimate(
+                        line_items=[],
+                        summary="No damage detected in the provided images.",
+                        confidence_score=1.0,
+                    ),
+                    vehicle_info=request.vehicle_info,
+                    human_damage_description=request.damage_description,
+                    pss_data_used=pss_data is not None,
+                    processing_time_seconds=time.time() - start_time,
+                )
+            
+            # Collect all damages
+            all_damages: list[DamageDescription] = []
+            for detection in images_with_damage:
+                all_damages.extend(detection.damages)
+            
+            # Step 4: Retrieve similar chunks from Qdrant
+            search_query = detection_response.merged_damage_description
+            if request.damage_description:
+                search_query = f"{request.damage_description}. {search_query}"
+            
+            retrieved_chunks = self.retrieve_similar_chunks(
+                damage_description=search_query,
+            )
+            
+            # Step 5: Generate estimate
+            generated_estimate = self.generate_estimate(
+                damage_descriptions=all_damages,
+                retrieved_chunks=retrieved_chunks,
+                vehicle_info=request.vehicle_info,
+                human_description=request.damage_description,
+                pss_data=pss_data,
+            )
+            
+            return RAGEstimateResponse(
+                success=True,
+                images_analyzed=detection_response.total_images,
+                images_with_damage=detection_response.images_with_damage,
+                damage_detections=detection_response.detections,
+                # retrieved_chunks=retrieved_chunks,
+                generated_estimate=generated_estimate,
+                vehicle_info=request.vehicle_info,
+                human_damage_description=request.damage_description,
+                pss_data_used=pss_data is not None,
+                processing_time_seconds=time.time() - start_time,
+            )
+            
+        except Exception as e:
+            return RAGEstimateResponse(
+                success=False,
+                error=str(e),
+                processing_time_seconds=time.time() - start_time,
+            )

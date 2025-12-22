@@ -11,6 +11,16 @@ from .vehicle_damage import (
     VehicleDamageAnalysisResponse,
     ChunkOutput,
 )
+from .rag_models import (
+    DamageDetectionResult,
+    RetrievedChunk,
+    RAGEstimateRequest,
+    RAGEstimateResponse,
+    GeneratedEstimate,
+    EstimateOperation as RAGEstimateOperation,
+    DamageDetectionRequest,
+    DamageDetectionResponse,
+)
 
 __all__ = [
     "HealthResponse",
@@ -24,4 +34,13 @@ __all__ = [
     "VehicleDamageAnalysisRequest",
     "VehicleDamageAnalysisResponse",
     "ChunkOutput",
+    # RAG models
+    "DamageDetectionResult",
+    "RetrievedChunk",
+    "RAGEstimateRequest",
+    "RAGEstimateResponse",
+    "GeneratedEstimate",
+    "RAGEstimateOperation",
+    "DamageDetectionRequest",
+    "DamageDetectionResponse",
 ]

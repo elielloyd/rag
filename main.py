@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routes import qdrant_router, health_router, vehicle_damage_router
+from routes import qdrant_router, health_router, vehicle_damage_router, rag_router
 
 # Create FastAPI application
 app = FastAPI(
@@ -28,6 +28,7 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(qdrant_router)
 app.include_router(vehicle_damage_router)
+app.include_router(rag_router)
 
 
 @app.on_event("startup")

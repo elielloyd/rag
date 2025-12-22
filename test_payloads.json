@@ -1,0 +1,62 @@
+[
+  {
+    "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/claim-2/images/",
+    "damage_description": "Dommages : le bas du pare-chocs avant c/ pass est égratigné / la jante de de la roue est égratignée/ le plastique au-dessus de la roue avant c/pass est arraché. Dommage ant.: Auncun",
+    "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/claim-2_optimized_pss.json",
+    "vehicle_info": {
+      "vin": "WA1EAAFY6P2034636",
+      "make": "AUDI",
+      "model": "Q5 PROGRESSIV 45 2.0 TFSI 4P TI",
+      "year": 2023,
+      "body_type": "SUV"
+    }
+  },
+  {
+    "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/claim-3/images/",
+    "damage_description": "Dommages: Le cligotant avant cote conducteur Le pare-choc avant est decolle cote conducteur Dommages pre-existants: En dessous de la voiture vers l’avant il y avait qui se decollait",
+    "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/claim-3_optimized_pss.json",
+    "vehicle_info": {
+      "vin": "YV1RH592752462515",
+      "make": "VOLVO",
+      "model": "S60 2.5T 4P TI",
+      "year": 2005,
+      "body_type": "Sedan"
+    }
+  },
+  {
+    "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/claim-4/images/",
+    "damage_description": "Damages : p/s fender scratched. No prior damage.",
+    "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/claim-4_optimized_pss.json",
+    "vehicle_info": {
+      "vin": "KMHD84LFXKU800023",
+      "make": "HYUNDAI",
+      "model": "ELANTRA PREFERRED 4DR",
+      "year": 2019,
+      "body_type": "Sedan"
+    }
+  },
+  {
+    "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/claim-5/images/",
+    "damage_description": " was driving on Logan Street to turn onto Alexander Street, but as I went around the curve (to the left), my car slid due to a thick layer of ice and came to a stop because of the accumulated snow at the curb. Seconds later, the car coming behind me experienced the same thing while turning left and hit my vehicle, pushing my car further into the curb and making it crash against the bushes",
+    "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/claim-5_optimized_pss.json",
+    "vehicle_info": {
+      "vin": "JN8AF5MR9DT210730",
+      "make": "NISSAN TRUCK/VAN",
+      "model": "JUKE SV 4DR 2WD",
+      "year": 2013,
+      "body_type": "Subcompact Crossover SUV"
+    }
+  },
+  {
+    "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/claim-6/images/",
+    "damage_description": "Damages: Scratch/dent on the D/S front fender and door Prior UNrepaired damages: No Use: Personnal",
+    "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/claim-6_optimized_pss.json",
+    "vehicle_info": {
+      "vin": "YV1MK382472026676",
+      "make": "VOLVO",
+      "model": "C30 2.4i 3DR",
+      "year": 2007,
+      "body_type": "3-door Hatchback"
+    }
+  }
+]
