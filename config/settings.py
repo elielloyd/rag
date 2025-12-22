@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "us-east-1"
-    aws_s3_bucket: str = "ehsan-poc-estimate-true-claim"
+    aws_s3_bucket: str = "trueclaim"
     
     # Qdrant Configuration
     qdrant_host: str = "localhost"
