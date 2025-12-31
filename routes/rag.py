@@ -1,14 +1,19 @@
 """Routes for RAG (Retrieval Augmented Generation) pipeline."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 
 from models.rag_models import (
     RAGEstimateRequest,
     RAGEstimateResponse,
 )
 from services.rag_service import RAGService
+from middleware.auth import verify_api_key
 
-router = APIRouter(prefix="/rag", tags=["RAG Estimate Generation"])
+router = APIRouter(
+    prefix="/rag",
+    tags=["RAG Estimate Generation"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 def get_rag_service() -> RAGService:
@@ -21,46 +26,57 @@ async def generate_rag_estimate(request: RAGEstimateRequest):
     """
     Generate a repair estimate using RAG pipeline.
     
-    This endpoint implements the complete RAG flow:
-    1. Fetches images from the provided S3 bucket URL
-    2. Analyzes each image for damage using Gemini 3
-    3. Filters to only images with detected damage
-    4. Retrieves similar historical estimates from Qdrant vector database
-    5. Combines retrieved chunks with PSS data and damage descriptions
-    6. Generates a final repair estimate
+    This endpoint accepts pre-processed damage information and generates an estimate:
+    1. Uses provided damage descriptions and merged description
+    2. Retrieves similar historical estimates from Qdrant vector database
+    3. Combines retrieved chunks with PSS data and damage descriptions
+    4. Generates a final repair estimate
     
     Args:
         request: RAGEstimateRequest containing:
-            - bucket_url: S3 bucket URL with vehicle images
-            - damage_description: Optional human-provided damage description
-            - pss_url: Optional S3 URL to PSS (Parts and Service Standards) JSON file
-            - vehicle_info: Optional vehicle information
+            - vehicle_info: Vehicle information (VIN, make, model, year, body_type)
+            - side: Side of vehicle where damage is located
+            - images: List of image URLs
+            - damage_descriptions: List of damage descriptions
+            - merged_damage_description: Merged narrative of all damages
+            - pss_url: S3 URL to PSS JSON file
+            - custom_estimate_prompt: Optional custom prompt template (uses placeholders: {vehicle_info}, {damage_descriptions}, {human_description}, {retrieved_chunks}, {pss_data})
     
     Returns:
         RAGEstimateResponse with:
-            - Damage detection results per image
-            - Retrieved similar chunks
             - Generated estimate with line items
             - Processing metadata
     
     Example request:
         {
-            "bucket_url": "s3://bucket/claims/claim-id/images/",
-            "damage_description": "Rear-end collision damage to bumper",
             "vehicle_info": {
                 "vin": "1234567890",
-                "make": "Toyota",
-                "model": "Camry",
+                "make": "Subaru",
+                "model": "Outback",
                 "year": 2020,
-                "body_type": "Sedan"
+                "body_type": "SUV"
             },
+            "side": "rear",
+            "images": ["s3://bucket/image1.jpg"],
+            "damage_descriptions": [
+                {
+                    "location": "rear",
+                    "part": "Rear Bumper",
+                    "severity": "Medium",
+                    "type": "Dent",
+                    "start_position": "left",
+                    "end_position": "center",
+                    "description": "Dent on rear bumper"
+                }
+            ],
+            "merged_damage_description": "Rear bumper damage with dent",
             "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/subaru_outback_2020_2024.json"
         }
     """
-    if not request.bucket_url:
+    if not request.damage_descriptions and not request.merged_damage_description:
         raise HTTPException(
             status_code=400,
-            detail="bucket_url must be provided"
+            detail="Either damage_descriptions or merged_damage_description must be provided"
         )
     
     service = get_rag_service()

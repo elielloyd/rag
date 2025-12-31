@@ -51,6 +51,10 @@ class ClassifyImagesRequest(BaseModel):
         description="S3 bucket URL containing vehicle images",
         json_schema_extra={"example": "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/"}
     )
+    custom_classification_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for image classification. If provided, this will be used instead of the default prompt."
+    )
 
 class ClassifyImagesResponse(BaseModel):
     """Response model for image classification."""
@@ -96,6 +100,14 @@ class AnalyzeSideImagesRequest(BaseModel):
         },
         description="Approved estimate operations by part category"
     )
+    custom_damage_analysis_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for damage analysis. Use placeholders: {year}, {make}, {model}, {body_type}, {side}, {approved_estimate}"
+    )
+    custom_merge_damage_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for merging damage descriptions. Use placeholders: {year}, {make}, {model}, {body_type}, {damage_descriptions}"
+    )
 
 
 class VehicleDamageAnalysisRequest(BaseModel):
@@ -121,6 +133,18 @@ class VehicleDamageAnalysisRequest(BaseModel):
             ]
         },
         description="Approved estimate operations by part category"
+    )
+    custom_classification_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for image classification. If provided, this will be used instead of the default prompt."
+    )
+    custom_damage_analysis_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for damage analysis. Use placeholders: {year}, {make}, {model}, {body_type}, {side}, {approved_estimate}"
+    )
+    custom_merge_damage_prompt: Optional[str] = Field(
+        default=None,
+        description="Custom prompt for merging damage descriptions. Use placeholders: {year}, {make}, {model}, {body_type}, {damage_descriptions}"
     )
 
 

@@ -1,11 +1,16 @@
 """Routes for Qdrant vector database operations."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 
 from services import QdrantService
+from middleware.auth import verify_api_key
 
-router = APIRouter(prefix="/qdrant", tags=["Qdrant"])
+router = APIRouter(
+    prefix="/qdrant",
+    tags=["Qdrant"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 def get_qdrant_service(collection_name: Optional[str] = None) -> QdrantService:

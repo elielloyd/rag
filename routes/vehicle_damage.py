@@ -1,6 +1,6 @@
 """Routes for vehicle damage analysis."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 
 from models import (
@@ -12,8 +12,13 @@ from models import (
     ChunkOutput,
 )
 from services import VehicleDamageService, QdrantService
+from middleware.auth import verify_api_key
 
-router = APIRouter(prefix="/vehicle-damage", tags=["Vehicle Damage Analysis"])
+router = APIRouter(
+    prefix="/vehicle-damage",
+    tags=["Vehicle Damage Analysis"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 def get_vehicle_damage_service() -> VehicleDamageService:
@@ -52,6 +57,7 @@ async def classify_images(request: ClassifyImagesRequest):
     
     response = service.classify_images_only(
         bucket_url=request.bucket_url,
+        custom_classification_prompt=request.custom_classification_prompt,
     )
     
     if not response.success:
@@ -112,6 +118,8 @@ async def analyze_side_images(request: AnalyzeSideImagesRequest):
         images=request.images,
         vehicle_info=request.vehicle_info,
         approved_estimate=request.approved_estimate,
+        custom_damage_analysis_prompt=request.custom_damage_analysis_prompt,
+        custom_merge_damage_prompt=request.custom_merge_damage_prompt,
     )
     
     # Save chunk to Qdrant
@@ -151,7 +159,10 @@ async def analyze_vehicle_damage_chunks(request: VehicleDamageAnalysisRequest):
     service = get_vehicle_damage_service()
     
     # First classify images by side
-    classify_response = service.classify_images_only(bucket_url=request.bucket_url)
+    classify_response = service.classify_images_only(
+        bucket_url=request.bucket_url,
+        custom_classification_prompt=request.custom_classification_prompt,
+    )
     
     if not classify_response.success:
         raise HTTPException(
@@ -172,6 +183,8 @@ async def analyze_vehicle_damage_chunks(request: VehicleDamageAnalysisRequest):
             images=images,
             vehicle_info=request.vehicle_info,
             approved_estimate=request.approved_estimate,
+            custom_damage_analysis_prompt=request.custom_damage_analysis_prompt,
+            custom_merge_damage_prompt=request.custom_merge_damage_prompt,
         )
         
         # Save chunk to Qdrant

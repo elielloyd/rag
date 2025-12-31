@@ -62,7 +62,8 @@ class EstimateOperationOutput(BaseModel):
 class EstimateOutput(BaseModel):
     """Structured output for estimate generation in approved_estimate format."""
     estimate: dict[str, list[dict]] = Field(
-        description="Estimate operations grouped by part category"
+        default_factory=dict,
+        description="Estimate operations grouped by part category. Each key is a part category (e.g., 'Rear Bumper'), and each value is a list of operations with Description, Operation, and optionally LaborHours."
     )
 
 
@@ -369,6 +370,7 @@ class RAGService:
         vehicle_info: Optional[VehicleInfo] = None,
         human_description: Optional[str] = None,
         pss_data: Optional[dict] = None,
+        custom_prompt: Optional[str] = None,
     ) -> GeneratedEstimate:
         """
         Generate an estimate based on damage and retrieved chunks.
@@ -379,6 +381,7 @@ class RAGService:
             vehicle_info: Vehicle information
             human_description: Human-provided description
             pss_data: Parts and Service Standards data
+            custom_prompt: Optional custom prompt template with placeholders
         
         Returns:
             GeneratedEstimate object
@@ -398,18 +401,43 @@ class RAGService:
             for c in retrieved_chunks
         ]
         
-        # Get prompt - always use the full prompt
-        prompt = get_estimate_generation_prompt(
-            vehicle_info=vehicle_info.model_dump() if vehicle_info else None,
-            damage_descriptions=damage_dicts,
-            human_description=human_description,
-            retrieved_chunks=chunk_dicts,
-            pss_data=pss_data,
-        )
+        # Use custom prompt if provided, otherwise use default
+        if custom_prompt:
+            from prompts.rag_prompts import (
+                format_vehicle_info,
+                format_damage_descriptions,
+                format_retrieved_chunks,
+                format_pss_data,
+            )
+            # Format the custom prompt with the same well-formatted context as default
+            prompt = custom_prompt.format(
+                vehicle_info=format_vehicle_info(vehicle_info.model_dump() if vehicle_info else None),
+                damage_descriptions=format_damage_descriptions(damage_dicts),
+                human_description=human_description or "Not provided",
+                retrieved_chunks=format_retrieved_chunks(chunk_dicts),
+                pss_data=format_pss_data(pss_data),
+            )
+        else:
+            prompt = get_estimate_generation_prompt(
+                vehicle_info=vehicle_info.model_dump() if vehicle_info else None,
+                damage_descriptions=damage_dicts,
+                human_description=human_description,
+                retrieved_chunks=chunk_dicts,
+                pss_data=pss_data,
+            )
         
         # Generate estimate
         message = HumanMessage(content=prompt)
-        result: EstimateOutput = self.estimate_model.invoke([message])
+        print(f"DEBUG: Sending prompt to LLM (length: {len(prompt)} chars)")
+        
+        try:
+            result: EstimateOutput = self.estimate_model.invoke([message])
+            print(f"DEBUG: LLM response estimate keys: {list(result.estimate.keys()) if result.estimate else 'empty'}")
+            print(f"DEBUG: Full LLM response: {result.estimate}")
+        except Exception as e:
+            print(f"DEBUG: LLM invocation error: {e}")
+            # Return empty estimate on error
+            return GeneratedEstimate(estimate={})
         
         # Convert to EstimateOperation objects and build the estimate dict
         from models.rag_models import EstimateOperation
@@ -438,11 +466,9 @@ class RAGService:
         Run the complete RAG pipeline for estimate generation.
         
         Flow:
-        1. Fetch images from S3
-        2. Detect damage in images using Gemini
-        3. Filter images with damage
-        4. Retrieve similar chunks from Qdrant
-        5. Generate estimate using retrieved chunks + PSS data
+        1. Use provided damage descriptions directly
+        2. Retrieve similar chunks from Qdrant using merged_damage_description
+        3. Generate estimate using retrieved chunks + PSS data
         
         Args:
             request: RAGEstimateRequest with all input parameters
@@ -461,75 +487,54 @@ class RAGService:
                 except Exception as e:
                     print(f"Warning: Failed to fetch PSS data from {request.pss_url}: {e}")
             
-            # Step 1 & 2: Detect damage in images
-            detection_response = self.detect_damage_batch(
-                bucket_url=request.bucket_url,
-                vehicle_info=request.vehicle_info,
-                human_description=request.damage_description,
-            )
+            # Use provided damage descriptions directly
+            all_damages: list[DamageDescription] = request.damage_descriptions or []
             
-            if not detection_response.success:
+            print(f"DEBUG: Received {len(all_damages)} damage descriptions")
+            print(f"DEBUG: PSS data loaded: {pss_data is not None}")
+            
+            # Build search query from merged_damage_description or individual descriptions
+            search_query = request.merged_damage_description
+            if not search_query and all_damages:
+                # Create merged description from individual damages if not provided
+                search_query = self._merge_damage_descriptions(all_damages, request.vehicle_info)
+            
+            print(f"DEBUG: Search query: {search_query}")
+            
+            if not search_query:
                 return RAGEstimateResponse(
                     success=False,
-                    error=detection_response.error,
+                    error="No damage description provided for retrieval",
                     processing_time_seconds=time.time() - start_time,
                 )
             
-            # Step 3: Filter to images with damage
-            images_with_damage = [
-                d for d in detection_response.detections if d.has_damage
-            ]
-            
-            if not images_with_damage:
-                return RAGEstimateResponse(
-                    success=True,
-                    images_analyzed=detection_response.total_images,
-                    images_with_damage=0,
-                    damage_detections=detection_response.detections,
-                    retrieved_chunks=[],
-                    generated_estimate=GeneratedEstimate(
-                        line_items=[],
-                        summary="No damage detected in the provided images.",
-                        confidence_score=1.0,
-                    ),
-                    vehicle_info=request.vehicle_info,
-                    human_damage_description=request.damage_description,
-                    pss_data_used=pss_data is not None,
-                    processing_time_seconds=time.time() - start_time,
-                )
-            
-            # Collect all damages
-            all_damages: list[DamageDescription] = []
-            for detection in images_with_damage:
-                all_damages.extend(detection.damages)
-            
-            # Step 4: Retrieve similar chunks from Qdrant
-            search_query = detection_response.merged_damage_description
-            if request.damage_description:
-                search_query = f"{request.damage_description}. {search_query}"
-            
+            # Step 1: Retrieve similar chunks from Qdrant
             retrieved_chunks = self.retrieve_similar_chunks(
                 damage_description=search_query,
             )
             
-            # Step 5: Generate estimate
+            print(f"DEBUG: Retrieved {len(retrieved_chunks)} chunks from Qdrant")
+            
+            # Step 2: Generate estimate
             generated_estimate = self.generate_estimate(
                 damage_descriptions=all_damages,
                 retrieved_chunks=retrieved_chunks,
                 vehicle_info=request.vehicle_info,
-                human_description=request.damage_description,
+                human_description=request.merged_damage_description,
                 pss_data=pss_data,
+                custom_prompt=request.custom_estimate_prompt,
             )
+            
+            print(f"DEBUG: Generated estimate with {len(generated_estimate.estimate)} categories")
             
             return RAGEstimateResponse(
                 success=True,
-                images_analyzed=detection_response.total_images,
-                images_with_damage=detection_response.images_with_damage,
-                damage_detections=detection_response.detections,
-                # retrieved_chunks=retrieved_chunks,
+                images_analyzed=len(request.images) if request.images else 0,
+                images_with_damage=len(request.images) if request.images else 0,
+                damage_detections=[],
                 generated_estimate=generated_estimate,
                 vehicle_info=request.vehicle_info,
-                human_damage_description=request.damage_description,
+                human_damage_description=request.merged_damage_description,
                 pss_data_used=pss_data is not None,
                 processing_time_seconds=time.time() - start_time,
             )

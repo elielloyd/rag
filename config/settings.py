@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "us-east-1"
-    aws_s3_bucket: str = "trueclaim"
+    aws_s3_bucket: str = "ehsan-poc-estimate-true-claim"
     
     # Qdrant Configuration
     qdrant_host: str = "localhost"
@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     langsmith_endpoint: Optional[str] = "https://api.smith.langchain.com"
     langsmith_api_key: Optional[str] = ""
     langsmith_project: Optional[str] = ""
+    
+    # API Authentication
+    api_key: str = ""  # Expected API key value (decrypted)
+    encryption_key: str = ""  # Key used to decrypt incoming x-api-key header
     
     class Config:
         env_file = ".env"

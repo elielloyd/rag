@@ -1,0 +1,406 @@
+{
+  "_description": "Copy-paste ready examples for all API endpoints. Replace S3 URLs with your actual bucket paths.",
+  "_base_url": "http://localhost:8000",
+
+  "health_check": {
+    "endpoint": "GET /health",
+    "description": "Check if the API is running",
+    "curl": "curl http://localhost:8000/health",
+    "expected_response": {
+      "status": "healthy"
+    }
+  },
+
+  "vehicle_damage": {
+    "classify_images": {
+      "endpoint": "POST /vehicle-damage/classify",
+      "description": "Classify vehicle images by side (front, rear, left, right, roof)",
+      "request": {
+        "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/",
+        "custom_classification_prompt": null
+      },
+      "request_with_custom_prompt": {
+        "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/",
+        "custom_classification_prompt": "Analyze this vehicle image and determine which side of the vehicle is shown. Return one of: front, rear, left, right, roof, or unknown."
+      },
+      "expected_response": {
+        "success": true,
+        "classified_images": {
+          "front": ["s3://bucket/image1.jpg"],
+          "rear": ["s3://bucket/image2.jpg", "s3://bucket/image3.jpg"],
+          "left": [],
+          "right": [],
+          "roof": [],
+          "unknown": []
+        },
+        "total_images": 3,
+        "processing_time_seconds": 2.5,
+        "error": null
+      }
+    },
+
+    "analyze_side": {
+      "endpoint": "POST /vehicle-damage/analyze-side",
+      "description": "Analyze damage for images of a specific vehicle side",
+      "request": {
+        "side": "rear",
+        "images": [
+          "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/11_af787c1a-c89a-4c0d-ade8-cff3731bfd65.jpeg",
+          "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/1_0be7ae45-f870-406b-b1f7-01aaf229ba1a.jpeg"
+        ],
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK 2.5i LIMITED",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "approved_estimate": {
+          "Rear Bumper": [
+            {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}
+          ]
+        },
+        "custom_damage_analysis_prompt": null,
+        "custom_merge_damage_prompt": null
+      },
+      "request_with_custom_prompts": {
+        "side": "rear",
+        "images": [
+          "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/image1.jpeg"
+        ],
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "approved_estimate": {},
+        "custom_damage_analysis_prompt": "Analyze the {side} side of this {year} {make} {model} ({body_type}) for damage. Reference estimate: {approved_estimate}. List all visible damage with location, part, severity, type, and description.",
+        "custom_merge_damage_prompt": "Create a narrative summary for the {year} {make} {model} ({body_type}) based on these damages: {damage_descriptions}"
+      },
+      "expected_response": {
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK 2.5i LIMITED",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "side": "Rear",
+        "images": [
+          "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/11_af787c1a-c89a-4c0d-ade8-cff3731bfd65.jpeg"
+        ],
+        "damage_descriptions": [
+          {
+            "location": "Rear Center",
+            "part": "Rear Bumper Cover",
+            "severity": "Medium",
+            "type": "Dent",
+            "start_position": "Left",
+            "end_position": "Center",
+            "description": "Visible dent on the rear bumper cover extending from the left side to the center"
+          },
+          {
+            "location": "Rear Right",
+            "part": "Tail Light Assembly",
+            "severity": "Minor",
+            "type": "Scratches",
+            "start_position": "Top",
+            "end_position": "Bottom",
+            "description": "Light scratches on the right tail light assembly"
+          }
+        ],
+        "merged_damage_description": "The 2020 SUBARU OUTBACK shows damage to the rear section. The rear bumper cover has a medium-severity dent extending from the left side to the center. Additionally, there are minor scratches on the right tail light assembly.",
+        "approved_estimate": {
+          "Rear Bumper": [
+            {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}
+          ]
+        }
+      }
+    },
+
+    "analyze_chunks": {
+      "endpoint": "POST /vehicle-damage/analyze/chunks",
+      "description": "Classify all images and analyze each side, returning chunks per side",
+      "request": {
+        "bucket_url": "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/",
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK 2.5i LIMITED",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "approved_estimate": {
+          "Rear Bumper": [
+            {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}
+          ]
+        },
+        "custom_classification_prompt": null,
+        "custom_damage_analysis_prompt": null,
+        "custom_merge_damage_prompt": null
+      },
+      "expected_response": [
+        {
+          "vehicle_info": {
+            "vin": "4S4BTDNC3L3195200",
+            "make": "SUBARU",
+            "model": "OUTBACK 2.5i LIMITED",
+            "year": 2020,
+            "body_type": "SUV"
+          },
+          "side": "Rear",
+          "images": ["s3://bucket/rear1.jpg", "s3://bucket/rear2.jpg"],
+          "damage_descriptions": [
+            {
+              "location": "Rear Center",
+              "part": "Rear Bumper Cover",
+              "severity": "Medium",
+              "type": "Dent",
+              "start_position": "Left",
+              "end_position": "Center",
+              "description": "Dent on rear bumper"
+            }
+          ],
+          "merged_damage_description": "The rear of the vehicle shows damage...",
+          "approved_estimate": {
+            "Rear Bumper": [
+              {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}
+            ]
+          }
+        },
+        {
+          "vehicle_info": {
+            "vin": "4S4BTDNC3L3195200",
+            "make": "SUBARU",
+            "model": "OUTBACK 2.5i LIMITED",
+            "year": 2020,
+            "body_type": "SUV"
+          },
+          "side": "Front",
+          "images": ["s3://bucket/front1.jpg"],
+          "damage_descriptions": [],
+          "merged_damage_description": "No visible damage detected on the vehicle.",
+          "approved_estimate": {
+            "Rear Bumper": [
+              {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}
+            ]
+          }
+        }
+      ]
+    },
+
+    "save_chunk": {
+      "endpoint": "POST /vehicle-damage/save-chunk",
+      "description": "Save a damage analysis chunk to Qdrant vector database",
+      "request": {
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "side": "Rear",
+        "images": ["s3://bucket/rear1.jpg"],
+        "damage_descriptions": [
+          {
+            "location": "Rear Center",
+            "part": "Rear Bumper Cover",
+            "severity": "Medium",
+            "type": "Dent",
+            "start_position": "Left",
+            "end_position": "Center",
+            "description": "Dent on rear bumper"
+          }
+        ],
+        "merged_damage_description": "The rear bumper has a medium dent from left to center.",
+        "approved_estimate": {
+          "Rear Bumper": [
+            {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}
+          ]
+        }
+      },
+      "expected_response": {
+        "success": true,
+        "chunk_id": "abc123-def456-ghi789",
+        "message": "Chunk saved to Qdrant successfully"
+      }
+    }
+  },
+
+  "rag_estimate": {
+    "generate_estimate": {
+      "endpoint": "POST /rag/estimate",
+      "description": "Generate a repair estimate using RAG pipeline with historical data and PSS",
+      "request": {
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "side": "rear",
+        "images": [
+          "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/rear1.jpg"
+        ],
+        "damage_descriptions": [
+          {
+            "location": "Rear",
+            "part": "Rear Bumper",
+            "severity": "Medium",
+            "type": "Dent",
+            "start_position": "left",
+            "end_position": "center",
+            "description": "Dent on rear bumper cover extending from left to center"
+          },
+          {
+            "location": "Rear Right",
+            "part": "Tail Light",
+            "severity": "Major",
+            "type": "Crack",
+            "start_position": "top",
+            "end_position": "bottom",
+            "description": "Cracked tail light assembly on right side"
+          }
+        ],
+        "merged_damage_description": "The rear of the 2020 Subaru Outback shows a medium dent on the rear bumper cover from left to center, and a cracked right tail light assembly.",
+        "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/subaru_outback_2020_2024.json",
+        "custom_estimate_prompt": null
+      },
+      "request_with_custom_prompt": {
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "damage_descriptions": [
+          {
+            "location": "Rear",
+            "part": "Rear Bumper",
+            "severity": "Medium",
+            "type": "Dent",
+            "start_position": "left",
+            "end_position": "center",
+            "description": "Dent on rear bumper"
+          }
+        ],
+        "merged_damage_description": "Rear bumper damage with dent",
+        "pss_url": null,
+        "custom_estimate_prompt": "You are an automotive repair estimator. Vehicle Info: {vehicle_info}. Detected Damage: {damage_descriptions}. Human Description: {human_description}. Historical Estimates: {retrieved_chunks}. PSS Data: {pss_data}. Generate a JSON repair estimate grouped by part category with operations (Remove / Replace or Repair with LaborHours)."
+      },
+      "expected_response": {
+        "success": true,
+        "images_analyzed": 1,
+        "images_with_damage": 1,
+        "damage_detections": [],
+        "generated_estimate": {
+          "estimate": {
+            "Rear Bumper": [
+              {"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"},
+              {"Description": "Rear Bumper Reinforcement", "Operation": "Repair", "LaborHours": 1.5}
+            ],
+            "Tail Light": [
+              {"Description": "Tail Light Assembly - Right", "Operation": "Remove / Replace"}
+            ]
+          }
+        },
+        "vehicle_info": {
+          "vin": "4S4BTDNC3L3195200",
+          "make": "SUBARU",
+          "model": "OUTBACK",
+          "year": 2020,
+          "body_type": "SUV"
+        },
+        "human_damage_description": "The rear of the 2020 Subaru Outback shows a medium dent on the rear bumper cover from left to center, and a cracked right tail light assembly.",
+        "pss_data_used": true,
+        "processing_time_seconds": 3.2,
+        "error": null
+      }
+    }
+  },
+
+  "qdrant": {
+    "search": {
+      "endpoint": "GET /qdrant/search",
+      "description": "Search for similar damage descriptions in vector database",
+      "curl": "curl 'http://localhost:8000/qdrant/search?query=rear%20bumper%20dent&limit=5'",
+      "parameters": {
+        "query": "rear bumper dent",
+        "limit": 5,
+        "collection_name": null
+      },
+      "expected_response": {
+        "query": "rear bumper dent",
+        "results": [
+          {
+            "score": 0.92,
+            "content": "The rear bumper has a medium dent from collision...",
+            "vehicle_info": {
+              "make": "SUBARU",
+              "model": "OUTBACK",
+              "year": 2020
+            },
+            "side": "rear"
+          },
+          {
+            "score": 0.85,
+            "content": "Rear bumper cover shows dent damage...",
+            "vehicle_info": {
+              "make": "HONDA",
+              "model": "CIVIC",
+              "year": 2022
+            },
+            "side": "rear"
+          }
+        ],
+        "count": 2
+      }
+    },
+
+    "collection_info": {
+      "endpoint": "GET /qdrant/collection/info",
+      "description": "Get information about the Qdrant collection",
+      "curl": "curl 'http://localhost:8000/qdrant/collection/info'",
+      "expected_response": {
+        "collection_name": "vehicle_damage_chunks",
+        "vectors_count": 150,
+        "points_count": 150,
+        "status": "green"
+      }
+    },
+
+    "delete_collection": {
+      "endpoint": "DELETE /qdrant/collection",
+      "description": "Delete the Qdrant collection (use with caution)",
+      "curl": "curl -X DELETE 'http://localhost:8000/qdrant/collection'",
+      "expected_response": {
+        "message": "Collection 'vehicle_damage_chunks' deleted successfully"
+      }
+    }
+  },
+
+  "custom_prompts_reference": {
+    "_description": "Reference for available placeholders in custom prompts",
+    "classification_prompt": {
+      "placeholders": "None - receives raw image",
+      "example": "Analyze this vehicle image and classify which side is shown: front, rear, left, right, roof, or unknown. Return your classification with confidence score."
+    },
+    "damage_analysis_prompt": {
+      "placeholders": ["{year}", "{make}", "{model}", "{body_type}", "{side}", "{approved_estimate}"],
+      "example": "Analyze the {side} side of this {year} {make} {model} ({body_type}) for visible damage. Reference the approved estimate: {approved_estimate}. For each damage found, provide: location, part name, severity (Minor/Medium/Major), damage type, start position, end position, and detailed description."
+    },
+    "merge_damage_prompt": {
+      "placeholders": ["{year}", "{make}", "{model}", "{body_type}", "{damage_descriptions}"],
+      "example": "Create a professional narrative summary of the damage to this {year} {make} {model} ({body_type}). Damages found: {damage_descriptions}. Write a clear, concise paragraph suitable for an insurance claim."
+    },
+    "estimate_generation_prompt": {
+      "placeholders": ["{vehicle_info}", "{damage_descriptions}", "{human_description}", "{retrieved_chunks}", "{pss_data}"],
+      "example": "You are an expert automotive estimator. Generate a repair estimate for the following: Vehicle: {vehicle_info}. Damage: {damage_descriptions}. Description: {human_description}. Similar historical estimates: {retrieved_chunks}. Parts data: {pss_data}. Output JSON grouped by part category."
+    }
+  }
+}

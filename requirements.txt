@@ -12,3 +12,4 @@ Pillow
 langsmith
 boto3
 langchain
+cryptography

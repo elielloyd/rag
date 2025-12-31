@@ -73,32 +73,29 @@ Respond in the exact JSON structure specified by the schema.
 
 ESTIMATE_GENERATION_PROMPT = """<role>
 You are an expert automotive estimator specializing in collision repair estimates.
-You are precise, analytical, and use only verified data sources.
 </role>
 
+<task>
+Generate a repair estimate for the damaged vehicle based on the provided information.
+</task>
+
 <instructions>
-1. **Analyze**: Review the detected damage descriptions carefully
-2. **Match**: Find corresponding parts in the PSS data that match the damaged areas
-3. **Decide**: For each damaged part, determine if it needs "Repair" or "Remove / Replace"
-4. **Output**: Generate the estimate using exact part descriptions from PSS data
+1. Review the detected damage descriptions
+2. Use PSS data as reference for part names when available
+3. For each damaged part, determine the appropriate operation:
+   - "Repair" - for fixable damage (include LaborHours estimate)
+   - "Remove / Replace" - for parts that need replacement
+4. Generate a comprehensive estimate covering all detected damages
 </instructions>
 
-<constraints>
-- Generate estimates ONLY for damage that was actually detected - do not invent or assume additional damage
-- USE PSS DATA AS THE PRIMARY SOURCE for part names, descriptions, and categories
-- Operation types are limited to:
-  - "Repair" - includes LaborHours field
-  - "Remove / Replace" - NO LaborHours field
-- LaborHours field is ONLY included when Operation is "Repair"
-</constraints>
-
-<prioritization>
-1. PRIORITIZE damages with "Major" or "Medium" severity over "Minor" damages
-2. Focus on structural and safety-critical parts first
-3. Group related damages by part category
-4. For extensive damage (cracks, breaks, shattered): prefer "Remove / Replace"
-5. For surface damage only (scuffs, scratches, minor dents): consider "Repair"
-</prioritization>
+<guidelines>
+- Focus on the actual damage described - do not add unrelated items
+- Use part names from PSS data when they match the damaged areas
+- If PSS data doesn't have an exact match, use reasonable part descriptions
+- For major damage (cracks, breaks, severe dents): prefer "Remove / Replace"
+- For minor/moderate damage (scratches, scuffs, small dents): consider "Repair"
+- Include labor hours (0.5 to 4.0 typical range) for Repair operations
+</guidelines>
 
 <context>
 <vehicle_info>
@@ -123,19 +120,22 @@ You are precise, analytical, and use only verified data sources.
 </context>
 
 <output_format>
-Generate a JSON estimate grouped by part category with this structure:
+Generate a JSON estimate grouped by part category:
 {{
   "estimate": {{
-    "Category Name": [
-      {{"Description": "Part description from PSS", "Operation": "Repair", "LaborHours": 1.5}},
-      {{"Description": "Part description from PSS", "Operation": "Remove / Replace"}}
+    "Rear Bumper": [
+      {{"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}},
+      {{"Description": "Rear Bumper Reinforcement", "Operation": "Repair", "LaborHours": 1.5}}
+    ],
+    "Tail Light": [
+      {{"Description": "Tail Light Assembly - Right", "Operation": "Remove / Replace"}}
     ]
   }}
 }}
 </output_format>
 
 <final_instruction>
-Based on the detected damage and PSS data above, generate the repair estimate now.
+Based on the damage descriptions provided, generate the repair estimate now. Include all parts that need attention based on the detected damage.
 </final_instruction>"""
 
 
@@ -180,6 +180,67 @@ def get_damage_detection_with_context_prompt(
     )
 
 
+def format_vehicle_info(vehicle_info: dict = None) -> str:
+    """Format vehicle info dict into a readable string."""
+    if not vehicle_info:
+        return "Not provided"
+    vehicle_str = f"{vehicle_info.get('year', 'N/A')} {vehicle_info.get('make', 'N/A')} {vehicle_info.get('model', 'N/A')} ({vehicle_info.get('body_type', 'N/A')})"
+    if vehicle_info.get('vin'):
+        vehicle_str += f"\nVIN: {vehicle_info['vin']}"
+    return vehicle_str
+
+
+def format_damage_descriptions(damage_descriptions: list = None) -> str:
+    """Format damage descriptions list into a readable string."""
+    if not damage_descriptions:
+        return "No damage detected"
+    damage_str = ""
+    for i, damage in enumerate(damage_descriptions, 1):
+        if isinstance(damage, dict):
+            damage_str += f"\n{i}. **{damage.get('part', 'Unknown Part')}** at {damage.get('location', 'Unknown Location')}\n"
+            damage_str += f"   - Severity: {damage.get('severity', 'Unknown')}\n"
+            damage_str += f"   - Type: {damage.get('type', 'Unknown')}\n"
+            damage_str += f"   - Position: {damage.get('start_position', 'N/A')} to {damage.get('end_position', 'N/A')}\n"
+            damage_str += f"   - Description: {damage.get('description', 'N/A')}\n"
+        else:
+            damage_str += f"\n{i}. {damage}\n"
+    return damage_str
+
+
+def format_retrieved_chunks(retrieved_chunks: list = None) -> str:
+    """Format retrieved chunks list into a readable string."""
+    if not retrieved_chunks:
+        return "No similar historical estimates found"
+    chunks_str = ""
+    for i, chunk in enumerate(retrieved_chunks, 1):
+        chunks_str += f"\n### Historical Estimate {i} (Similarity: {chunk.get('score', 0):.2f})\n"
+        chunks_str += f"**Vehicle**: {chunk.get('vehicle_info', {}).get('year', 'N/A')} {chunk.get('vehicle_info', {}).get('make', 'N/A')} {chunk.get('vehicle_info', {}).get('model', 'N/A')}\n"
+        chunks_str += f"**Side**: {chunk.get('side', 'N/A')}\n"
+        chunks_str += f"**Damage Description**: {chunk.get('content', 'N/A')}\n"
+        
+        if chunk.get('approved_estimate'):
+            chunks_str += "**Approved Operations**:\n"
+            for category, operations in chunk.get('approved_estimate', {}).items():
+                chunks_str += f"  - {category}:\n"
+                for op in operations:
+                    desc = op.get('Description', 'N/A')
+                    operation = op.get('Operation', 'N/A')
+                    hours = op.get('LabourHours', '')
+                    if hours:
+                        chunks_str += f"    - {desc}: {operation} ({hours} hrs)\n"
+                    else:
+                        chunks_str += f"    - {desc}: {operation}\n"
+    return chunks_str
+
+
+def format_pss_data(pss_data: dict = None) -> str:
+    """Format PSS data dict into a string."""
+    if not pss_data:
+        return "Not provided"
+    import json
+    return json.dumps(pss_data, indent=2)
+
+
 def get_estimate_generation_prompt(
     vehicle_info: dict = None,
     damage_descriptions: list = None,
@@ -200,67 +261,12 @@ def get_estimate_generation_prompt(
     Returns:
         The complete prompt string.
     """
-    # Format vehicle info
-    vehicle_str = "Not provided"
-    if vehicle_info:
-        vehicle_str = f"{vehicle_info.get('year', 'N/A')} {vehicle_info.get('make', 'N/A')} {vehicle_info.get('model', 'N/A')} ({vehicle_info.get('body_type', 'N/A')})"
-        if vehicle_info.get('vin'):
-            vehicle_str += f"\nVIN: {vehicle_info['vin']}"
-    
-    # Format damage descriptions
-    damage_str = "No damage detected"
-    if damage_descriptions:
-        damage_str = ""
-        for i, damage in enumerate(damage_descriptions, 1):
-            if isinstance(damage, dict):
-                damage_str += f"\n{i}. **{damage.get('part', 'Unknown Part')}** at {damage.get('location', 'Unknown Location')}\n"
-                damage_str += f"   - Severity: {damage.get('severity', 'Unknown')}\n"
-                damage_str += f"   - Type: {damage.get('type', 'Unknown')}\n"
-                damage_str += f"   - Position: {damage.get('start_position', 'N/A')} to {damage.get('end_position', 'N/A')}\n"
-                damage_str += f"   - Description: {damage.get('description', 'N/A')}\n"
-            else:
-                damage_str += f"\n{i}. {damage}\n"
-    
-    # Format human description
-    human_str = "Not provided"
-    if human_description:
-        human_str = human_description
-    
-    # Format retrieved chunks
-    chunks_str = "No similar historical estimates found"
-    if retrieved_chunks:
-        chunks_str = ""
-        for i, chunk in enumerate(retrieved_chunks, 1):
-            chunks_str += f"\n### Historical Estimate {i} (Similarity: {chunk.get('score', 0):.2f})\n"
-            chunks_str += f"**Vehicle**: {chunk.get('vehicle_info', {}).get('year', 'N/A')} {chunk.get('vehicle_info', {}).get('make', 'N/A')} {chunk.get('vehicle_info', {}).get('model', 'N/A')}\n"
-            chunks_str += f"**Side**: {chunk.get('side', 'N/A')}\n"
-            chunks_str += f"**Damage Description**: {chunk.get('content', 'N/A')}\n"
-            
-            if chunk.get('approved_estimate'):
-                chunks_str += "**Approved Operations**:\n"
-                for category, operations in chunk.get('approved_estimate', {}).items():
-                    chunks_str += f"  - {category}:\n"
-                    for op in operations:
-                        desc = op.get('Description', 'N/A')
-                        operation = op.get('Operation', 'N/A')
-                        hours = op.get('LabourHours', '')
-                        if hours:
-                            chunks_str += f"    - {desc}: {operation} ({hours} hrs)\n"
-                        else:
-                            chunks_str += f"    - {desc}: {operation}\n"
-    
-    # Format PSS data
-    pss_str = "Not provided"
-    if pss_data:
-        import json
-        pss_str = json.dumps(pss_data, indent=2)
-    
     return ESTIMATE_GENERATION_PROMPT.format(
-        vehicle_info=vehicle_str,
-        damage_descriptions=damage_str,
-        human_description=human_str,
-        retrieved_chunks=chunks_str,
-        pss_data=pss_str,
+        vehicle_info=format_vehicle_info(vehicle_info),
+        damage_descriptions=format_damage_descriptions(damage_descriptions),
+        human_description=human_description or "Not provided",
+        retrieved_chunks=format_retrieved_chunks(retrieved_chunks),
+        pss_data=format_pss_data(pss_data),
     )
 
 

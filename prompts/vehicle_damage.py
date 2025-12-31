@@ -113,6 +113,63 @@ def get_damage_analysis_prompt(
     )
 
 
+def format_approved_estimate(approved_estimate: dict) -> str:
+    """
+    Format approved estimate dict into a readable string.
+    
+    Args:
+        approved_estimate: Dict of part categories to operations
+        
+    Returns:
+        Formatted string representation
+    """
+    if not approved_estimate:
+        return "No approved estimate provided"
+    
+    estimate_str = ""
+    for part_category, operations in approved_estimate.items():
+        estimate_str += f"\n{part_category}:\n"
+        for op in operations:
+            # Handle both dict and Pydantic model
+            if hasattr(op, 'Description'):
+                desc = op.Description
+                operation = op.Operation
+                hours = getattr(op, 'LabourHours', None)
+            else:
+                desc = op.get('Description', op.get('description', ''))
+                operation = op.get('Operation', op.get('operation', ''))
+                hours = op.get('LabourHours', op.get('LaborHours', op.get('labor_hours', '')))
+            if hours:
+                estimate_str += f"  - {desc}: {operation} ({hours} hours)\n"
+            else:
+                estimate_str += f"  - {desc}: {operation}\n"
+    
+    return estimate_str if estimate_str else "No approved estimate provided"
+
+
+def format_damage_descriptions_for_merge(damage_descriptions: list[dict]) -> str:
+    """
+    Format damage descriptions list into a readable string for merge prompt.
+    
+    Args:
+        damage_descriptions: List of damage description dictionaries
+        
+    Returns:
+        Formatted string representation
+    """
+    if not damage_descriptions:
+        return "No damage descriptions provided"
+    
+    desc_str = ""
+    for i, damage in enumerate(damage_descriptions, 1):
+        desc_str += f"\n{i}. {damage.get('location', 'Unknown')} - {damage.get('part', 'Unknown')}:\n"
+        desc_str += f"   Severity: {damage.get('severity', 'Unknown')}\n"
+        desc_str += f"   Type: {damage.get('type', 'Unknown')}\n"
+        desc_str += f"   Description: {damage.get('description', 'No description')}\n"
+    
+    return desc_str
+
+
 def get_merge_damage_prompt(
     year: int,
     make: str,
@@ -133,17 +190,10 @@ def get_merge_damage_prompt(
     Returns:
         The complete prompt string.
     """
-    desc_str = ""
-    for i, damage in enumerate(damage_descriptions, 1):
-        desc_str += f"\n{i}. {damage.get('location', 'Unknown')} - {damage.get('part', 'Unknown')}:\n"
-        desc_str += f"   Severity: {damage.get('severity', 'Unknown')}\n"
-        desc_str += f"   Type: {damage.get('type', 'Unknown')}\n"
-        desc_str += f"   Description: {damage.get('description', 'No description')}\n"
-    
     return MERGE_DAMAGE_PROMPT.format(
         year=year,
         make=make,
         model=model,
         body_type=body_type,
-        damage_descriptions=desc_str if desc_str else "No damage descriptions provided",
+        damage_descriptions=format_damage_descriptions_for_merge(damage_descriptions),
     )

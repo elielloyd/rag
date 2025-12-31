@@ -26,22 +26,34 @@ class RetrievedChunk(BaseModel):
 
 class RAGEstimateRequest(BaseModel):
     """Request model for RAG-based estimate generation."""
-    bucket_url: str = Field(
-        description="S3 bucket URL containing vehicle images",
-        json_schema_extra={"example": "s3://ehsan-poc-estimate-true-claim/claims/test-claim/images/"}
-    )
-    damage_description: Optional[str] = Field(
+    vehicle_info: Optional[VehicleInfo] = Field(
         default=None,
-        description="Human-provided damage description (may or may not be relevant)"
+        description="Vehicle information (VIN, make, model, year, body_type)"
+    )
+    side: Optional[str] = Field(
+        default=None,
+        description="Side of the vehicle where damage is located (front, rear, left, right, roof)"
+    )
+    images: Optional[list[str]] = Field(
+        default=None,
+        description="List of image URLs or base64 encoded images"
+    )
+    damage_descriptions: Optional[list[DamageDescription]] = Field(
+        default=None,
+        description="List of damage descriptions with location, part, severity, type, positions, and description"
+    )
+    merged_damage_description: Optional[str] = Field(
+        default=None,
+        description="Merged narrative description of all damages"
     )
     pss_url: Optional[str] = Field(
         default=None,
         description="S3 URL to PSS (Parts and Service Standards) JSON file",
         json_schema_extra={"example": "s3://ehsan-poc-estimate-true-claim/pss/subaru_outback_2020_2024.json"}
     )
-    vehicle_info: Optional[VehicleInfo] = Field(
+    custom_estimate_prompt: Optional[str] = Field(
         default=None,
-        description="Vehicle information (VIN, make, model, year, body_type)"
+        description="Custom prompt for estimate generation. If provided, this will be used instead of the default prompt. Use placeholders: {vehicle_info}, {damage_descriptions}, {human_description}, {retrieved_chunks}, {pss_data}"
     )
 
 

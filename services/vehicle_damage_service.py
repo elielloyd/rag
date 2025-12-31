@@ -87,18 +87,24 @@ class VehicleDamageService:
         self.s3_service = S3Service()
     
     
-    def classify_image(self, image_data: bytes, mime_type: str = "image/jpeg") -> tuple[VehicleSide, float]:
+    def classify_image(
+        self,
+        image_data: bytes,
+        mime_type: str = "image/jpeg",
+        custom_prompt: Optional[str] = None,
+    ) -> tuple[VehicleSide, float]:
         """
         Classify a vehicle image to determine which side it shows.
         
         Args:
             image_data: Raw image bytes
             mime_type: MIME type of the image
+            custom_prompt: Optional custom prompt for classification
         
         Returns:
             Tuple of (VehicleSide, confidence)
         """
-        prompt = get_classification_prompt()
+        prompt = custom_prompt if custom_prompt else get_classification_prompt()
         image_base64 = base64.b64encode(image_data).decode('utf-8')
         
         message = HumanMessage(
@@ -124,6 +130,7 @@ class VehicleDamageService:
         vehicle_info: VehicleInfo,
         side: VehicleSide,
         approved_estimate: dict,
+        custom_prompt: Optional[str] = None,
     ) -> list[DamageDescription]:
         """
         Analyze damage from multiple images of the same vehicle side.
@@ -133,6 +140,7 @@ class VehicleDamageService:
             vehicle_info: Vehicle information
             side: Side of the vehicle being analyzed
             approved_estimate: Approved estimate operations
+            custom_prompt: Optional custom prompt for damage analysis
         
         Returns:
             List of DamageDescription objects
@@ -140,14 +148,25 @@ class VehicleDamageService:
         if not images_data:
             return []
         
-        prompt = get_damage_analysis_prompt(
-            year=vehicle_info.year,
-            make=vehicle_info.make,
-            model=vehicle_info.model,
-            body_type=vehicle_info.body_type,
-            side=side.value,
-            approved_estimate=approved_estimate,
-        )
+        if custom_prompt:
+            from prompts.vehicle_damage import format_approved_estimate
+            prompt = custom_prompt.format(
+                year=vehicle_info.year,
+                make=vehicle_info.make,
+                model=vehicle_info.model,
+                body_type=vehicle_info.body_type,
+                side=side.value,
+                approved_estimate=format_approved_estimate(approved_estimate),
+            )
+        else:
+            prompt = get_damage_analysis_prompt(
+                year=vehicle_info.year,
+                make=vehicle_info.make,
+                model=vehicle_info.model,
+                body_type=vehicle_info.body_type,
+                side=side.value,
+                approved_estimate=approved_estimate,
+            )
         
         content_parts = [{"type": "text", "text": prompt}]
         for image_data, mime_type in images_data:
@@ -171,6 +190,7 @@ class VehicleDamageService:
         self,
         vehicle_info: VehicleInfo,
         damage_descriptions: list[DamageDescription],
+        custom_prompt: Optional[str] = None,
     ) -> str:
         """
         Create a merged narrative from all damage descriptions.
@@ -178,6 +198,7 @@ class VehicleDamageService:
         Args:
             vehicle_info: Vehicle information
             damage_descriptions: List of all damage descriptions
+            custom_prompt: Optional custom prompt for merging descriptions
         
         Returns:
             Merged damage description narrative
@@ -185,13 +206,23 @@ class VehicleDamageService:
         if not damage_descriptions:
             return "No visible damage detected on the vehicle."
         
-        prompt = get_merge_damage_prompt(
-            year=vehicle_info.year,
-            make=vehicle_info.make,
-            model=vehicle_info.model,
-            body_type=vehicle_info.body_type,
-            damage_descriptions=[d.model_dump() for d in damage_descriptions],
-        )
+        if custom_prompt:
+            from prompts.vehicle_damage import format_damage_descriptions_for_merge
+            prompt = custom_prompt.format(
+                year=vehicle_info.year,
+                make=vehicle_info.make,
+                model=vehicle_info.model,
+                body_type=vehicle_info.body_type,
+                damage_descriptions=format_damage_descriptions_for_merge([d.model_dump() for d in damage_descriptions]),
+            )
+        else:
+            prompt = get_merge_damage_prompt(
+                year=vehicle_info.year,
+                make=vehicle_info.make,
+                model=vehicle_info.model,
+                body_type=vehicle_info.body_type,
+                damage_descriptions=[d.model_dump() for d in damage_descriptions],
+            )
         
         message = HumanMessage(content=prompt)
         response = self.model.invoke([message])
@@ -302,19 +333,24 @@ class VehicleDamageService:
                 error=str(e),
             )
     
-    def _classify_single_image(self, s3_url: str) -> tuple[str, VehicleSide]:
+    def _classify_single_image(
+        self,
+        s3_url: str,
+        custom_prompt: Optional[str] = None,
+    ) -> tuple[str, VehicleSide]:
         """
         Classify a single image from S3. Helper for parallel processing.
         
         Args:
             s3_url: S3 URL of the image
+            custom_prompt: Optional custom prompt for classification
         
         Returns:
             Tuple of (s3_url, VehicleSide)
         """
         try:
             image_data, mime_type = self.s3_service.get_image(s3_url)
-            side, confidence = self.classify_image(image_data, mime_type)
+            side, confidence = self.classify_image(image_data, mime_type, custom_prompt)
             return s3_url, side
         except Exception as e:
             print(f"Error processing image {s3_url}: {e}")
@@ -325,6 +361,7 @@ class VehicleDamageService:
         bucket_url: Optional[str] = None,
         image_urls: Optional[list[str]] = None,
         max_workers: int = 10,
+        custom_classification_prompt: Optional[str] = None,
     ) -> ClassifyImagesResponse:
         """
         Classify images by vehicle side without damage analysis.
@@ -334,6 +371,7 @@ class VehicleDamageService:
             bucket_url: S3 bucket URL containing vehicle images
             image_urls: Optional list of specific S3 image URLs
             max_workers: Maximum number of parallel workers (default: 10)
+            custom_classification_prompt: Optional custom prompt for classification
         
         Returns:
             ClassifyImagesResponse with classified images by side
@@ -369,7 +407,7 @@ class VehicleDamageService:
             # Process images in parallel
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {
-                    executor.submit(self._classify_single_image, s3_url): s3_url
+                    executor.submit(self._classify_single_image, s3_url, custom_classification_prompt): s3_url
                     for s3_url in all_image_urls
                 }
                 
@@ -404,6 +442,8 @@ class VehicleDamageService:
         images: list[str],
         vehicle_info: VehicleInfo,
         approved_estimate: dict[str, list[EstimateOperation]],
+        custom_damage_analysis_prompt: Optional[str] = None,
+        custom_merge_damage_prompt: Optional[str] = None,
     ) -> ChunkOutput:
         """
         Analyze images for a specific side and produce chunk output.
@@ -413,6 +453,8 @@ class VehicleDamageService:
             images: List of S3 image URLs for this side
             vehicle_info: Vehicle information
             approved_estimate: Approved estimate operations
+            custom_damage_analysis_prompt: Optional custom prompt for damage analysis
+            custom_merge_damage_prompt: Optional custom prompt for merging descriptions
         
         Returns:
             ChunkOutput with damage descriptions from Gemini
@@ -435,12 +477,14 @@ class VehicleDamageService:
                 vehicle_info=vehicle_info,
                 side=vehicle_side,
                 approved_estimate=approved_estimate,
+                custom_prompt=custom_damage_analysis_prompt,
             )
         
         # Merge damage descriptions
         merged_description = self.merge_damage_descriptions(
             vehicle_info=vehicle_info,
             damage_descriptions=damage_descriptions,
+            custom_prompt=custom_merge_damage_prompt,
         )
         
         return ChunkOutput(
