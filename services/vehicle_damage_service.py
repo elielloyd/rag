@@ -444,6 +444,9 @@ class VehicleDamageService:
         approved_estimate: dict[str, list[EstimateOperation]],
         custom_damage_analysis_prompt: Optional[str] = None,
         custom_merge_damage_prompt: Optional[str] = None,
+        n8n_uuid: Optional[str] = None,
+        mitchell_url_key: Optional[str] = None,
+        account_id: Optional[int] = None,
     ) -> ChunkOutput:
         """
         Analyze images for a specific side and produce chunk output.
@@ -455,6 +458,9 @@ class VehicleDamageService:
             approved_estimate: Approved estimate operations
             custom_damage_analysis_prompt: Optional custom prompt for damage analysis
             custom_merge_damage_prompt: Optional custom prompt for merging descriptions
+            n8n_uuid: Optional N8N UUID of the claim
+            mitchell_url_key: Optional Mitchell URL key of the claim
+            account_id: Optional account ID
         
         Returns:
             ChunkOutput with damage descriptions from Gemini
@@ -494,6 +500,9 @@ class VehicleDamageService:
             damage_descriptions=damage_descriptions,
             merged_damage_description=merged_description,
             approved_estimate=approved_estimate,
+            n8n_uuid=n8n_uuid,
+            mitchell_url_key=mitchell_url_key,
+            account_id=account_id,
         )
     
     def generate_chunk_output(

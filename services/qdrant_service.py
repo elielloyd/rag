@@ -250,6 +250,14 @@ class QdrantService:
             "uploaded_at": datetime.now().isoformat(),
         }
         
+        # Add n8n_uuid, mitchell_url_key, and account_id if present
+        if chunk.n8n_uuid:
+            payload["n8n_uuid"] = chunk.n8n_uuid
+        if chunk.mitchell_url_key:
+            payload["mitchell_url_key"] = chunk.mitchell_url_key
+        if chunk.account_id is not None:
+            payload["account_id"] = chunk.account_id
+        
         # Generate a numeric ID from VIN + side + timestamp
         unique_id = f"{chunk.vehicle_info.vin}_{chunk.side}_{datetime.now().isoformat()}"
         point_id = int(hashlib.md5(unique_id.encode()).hexdigest()[:16], 16)

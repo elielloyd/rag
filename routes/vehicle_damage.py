@@ -120,6 +120,9 @@ async def analyze_side_images(request: AnalyzeSideImagesRequest):
         approved_estimate=request.approved_estimate,
         custom_damage_analysis_prompt=request.custom_damage_analysis_prompt,
         custom_merge_damage_prompt=request.custom_merge_damage_prompt,
+        n8n_uuid=request.n8n_uuid,
+        mitchell_url_key=request.mitchell_url_key,
+        account_id=request.account_id,
     )
     
     # Save chunk to Qdrant
@@ -185,6 +188,9 @@ async def analyze_vehicle_damage_chunks(request: VehicleDamageAnalysisRequest):
             approved_estimate=request.approved_estimate,
             custom_damage_analysis_prompt=request.custom_damage_analysis_prompt,
             custom_merge_damage_prompt=request.custom_merge_damage_prompt,
+            n8n_uuid=request.n8n_uuid,
+            mitchell_url_key=request.mitchell_url_key,
+            account_id=request.account_id,
         )
         
         # Save chunk to Qdrant

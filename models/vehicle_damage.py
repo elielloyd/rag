@@ -109,6 +109,20 @@ class AnalyzeSideImagesRequest(BaseModel):
         description="Custom prompt for merging damage descriptions. Use placeholders: {year}, {make}, {model}, {body_type}, {damage_descriptions}"
     )
 
+    n8n_uuid: Optional[str] = Field(
+        default=None,
+        description="N8N UUID of the claim"
+    )
+
+    mitchell_url_key: Optional[str] = Field(
+        default=None,
+        description="Mitchell URL key of the claim"
+    )
+    account_id: Optional[int] = Field(
+        default=None,
+        description="Account ID"
+    )
+
 
 class VehicleDamageAnalysisRequest(BaseModel):
     """Request model for vehicle damage analysis."""
@@ -146,6 +160,18 @@ class VehicleDamageAnalysisRequest(BaseModel):
         default=None,
         description="Custom prompt for merging damage descriptions. Use placeholders: {year}, {make}, {model}, {body_type}, {damage_descriptions}"
     )
+    n8n_uuid: Optional[str] = Field(
+        default=None,
+        description="N8N UUID of the claim"
+    )
+    mitchell_url_key: Optional[str] = Field(
+        default=None,
+        description="Mitchell URL key of the claim"
+    )
+    account_id: Optional[int] = Field(
+        default=None,
+        description="Account ID"
+    )
 
 
 class VehicleDamageAnalysisResponse(BaseModel):
@@ -168,6 +194,9 @@ class ChunkOutput(BaseModel):
     damage_descriptions: list[DamageDescription] = Field(description="All damage descriptions")
     merged_damage_description: str = Field(description="Merged narrative of all damages")
     approved_estimate: dict[str, list[EstimateOperation]] = Field(description="Approved estimate operations")
+    n8n_uuid: Optional[str] = Field(default=None, description="N8N UUID of the claim")
+    mitchell_url_key: Optional[str] = Field(default=None, description="Mitchell URL key of the claim")
+    account_id: Optional[int] = Field(default=None, description="Account ID")
     
     def model_dump(self, **kwargs):
         """Override to exclude None values from nested EstimateOperation."""
