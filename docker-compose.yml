@@ -4,9 +4,11 @@ services:
     build: .
     container_name: trueclaim-preprocessing
     ports:
-      - "8000:8000"
+      - "80:8000"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - API_KEY=${API_KEY}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - QDRANT_HOST=qdrant
       - QDRANT_PORT=6333
       - QDRANT_COLLECTION_NAME=image_descriptions
