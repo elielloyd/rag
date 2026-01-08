@@ -39,7 +39,7 @@ async def generate_rag_estimate(request: RAGEstimateRequest):
             - images: List of image URLs
             - damage_descriptions: List of damage descriptions
             - merged_damage_description: Merged narrative of all damages
-            - pss_url: S3 URL to PSS JSON file
+            - pss_data: PSS (Parts and Service Standards) data as a dictionary/JSON object
             - custom_estimate_prompt: Optional custom prompt template (uses placeholders: {vehicle_info}, {damage_descriptions}, {human_description}, {retrieved_chunks}, {pss_data})
     
     Returns:
@@ -70,7 +70,10 @@ async def generate_rag_estimate(request: RAGEstimateRequest):
                 }
             ],
             "merged_damage_description": "Rear bumper damage with dent",
-            "pss_url": "s3://ehsan-poc-estimate-true-claim/pss/subaru_outback_2020_2024.json"
+            "pss_data": {
+                "parts": [...],
+                "operations": [...]
+            }
         }
     """
     if not request.damage_descriptions and not request.merged_damage_description:

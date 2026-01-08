@@ -479,13 +479,8 @@ class RAGService:
         start_time = time.time()
         
         try:
-            # Fetch PSS data from S3 if URL provided
-            pss_data = None
-            if request.pss_url:
-                try:
-                    pss_data = self.s3_service.get_json(request.pss_url)
-                except Exception as e:
-                    print(f"Warning: Failed to fetch PSS data from {request.pss_url}: {e}")
+            # Use provided PSS data directly
+            pss_data = request.pss_data
             
             # Use provided damage descriptions directly
             all_damages: list[DamageDescription] = request.damage_descriptions or []

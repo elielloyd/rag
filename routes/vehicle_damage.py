@@ -104,13 +104,6 @@ async def analyze_side_images(request: AnalyzeSideImagesRequest):
             detail="images must be provided"
         )
     
-    valid_sides = ["front", "rear", "left", "right", "roof"]
-    if request.side.lower() not in valid_sides:
-        raise HTTPException(
-            status_code=400,
-            detail=f"side must be one of: {valid_sides}"
-        )
-    
     service = get_vehicle_damage_service()
     
     chunk = service.analyze_side_images(

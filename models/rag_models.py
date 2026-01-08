@@ -46,10 +46,9 @@ class RAGEstimateRequest(BaseModel):
         default=None,
         description="Merged narrative description of all damages"
     )
-    pss_url: Optional[str] = Field(
+    pss_data: Optional[dict] = Field(
         default=None,
-        description="S3 URL to PSS (Parts and Service Standards) JSON file",
-        json_schema_extra={"example": "s3://ehsan-poc-estimate-true-claim/pss/subaru_outback_2020_2024.json"}
+        description="PSS (Parts and Service Standards) data as a dictionary/JSON object"
     )
     custom_estimate_prompt: Optional[str] = Field(
         default=None,
