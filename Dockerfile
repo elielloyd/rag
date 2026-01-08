@@ -20,5 +20,6 @@ RUN mkdir -p data/images data/outputs
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application with multiple workers for better concurrency
+# For t3.large (2 vCPUs), using 4 workers is optimal
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "3"]
