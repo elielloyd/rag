@@ -539,7 +539,7 @@ class RAGService:
                 labor_hours = op.get('LaborHours') if op.get('Operation') == 'Repair' else None
                 
                 # Get PartId - use from LLM response if provided, otherwise match with PSS data
-                part_id = op.get('PartId')
+                part_id = str(op.get('PartId','') or '')
                 part_description = op.get('Description', '')
                 
                 # If LLM didn't provide PartId, try to match with PSS data
@@ -555,7 +555,7 @@ class RAGService:
                         Description=op.get('Description', 'Unknown'),
                         Operation=op.get('Operation', 'Unknown'),
                         LaborHours=labor_hours,
-                        PartId=part_id,
+                        PartId=str(part_id or ''),
                     )
                 )
         
