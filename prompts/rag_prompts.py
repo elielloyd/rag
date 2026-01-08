@@ -81,20 +81,24 @@ Generate a repair estimate for the damaged vehicle based on the provided informa
 
 <instructions>
 1. Review the detected damage descriptions
-2. Use PSS data as reference for part names when available
-3. For each damaged part, determine the appropriate operation:
+2. **CRITICAL: You MUST only select parts that exist in the provided PSS data. Do NOT invent or use parts that are not in the PSS data.**
+3. For each damaged part, find the matching part in PSS data and use its exact description
+4. Determine the appropriate operation based on the part's AvailableOperations in PSS data:
    - "Repair" - for fixable damage (include LaborHours estimate)
-   - "Remove / Replace" - for parts that need replacement
-4. Generate a comprehensive estimate covering all detected damages
+   - "Remove/Replace" or "Remove / Replace" - for parts that need replacement
+   - Other operations as available in PSS data
+5. Generate a comprehensive estimate covering all detected damages
+6. **Only include parts that can be matched to PSS data - if a damaged part is not in PSS data, do not include it in the estimate**
 </instructions>
 
 <guidelines>
-- Focus on the actual damage described - do not add unrelated items
-- Use part names from PSS data when they match the damaged areas
-- If PSS data doesn't have an exact match, use reasonable part descriptions
-- For major damage (cracks, breaks, severe dents): prefer "Remove / Replace"
-- For minor/moderate damage (scratches, scuffs, small dents): consider "Repair"
+- **MANDATORY: All parts must come from the PSS data provided - no exceptions**
+- Match damaged parts to PSS parts by description similarity
+- Use the exact part description from PSS data (FullDescription or Description field)
+- For major damage (cracks, breaks, severe dents): prefer "Remove/Replace" or "Remove / Replace"
+- For minor/moderate damage (scratches, scuffs, small dents): consider "Repair" if available in part's AvailableOperations
 - Include labor hours (0.5 to 4.0 typical range) for Repair operations
+- If a damaged part cannot be found in PSS data, skip it rather than inventing a part
 </guidelines>
 
 <context>
@@ -120,18 +124,24 @@ Generate a repair estimate for the damaged vehicle based on the provided informa
 </context>
 
 <output_format>
-Generate a JSON estimate grouped by part category:
+Generate a JSON estimate grouped by part category. Each operation should include the exact part description from PSS data:
 {{
   "estimate": {{
     "Rear Bumper": [
-      {{"Description": "Rear Bumper Cover", "Operation": "Remove / Replace"}},
-      {{"Description": "Rear Bumper Reinforcement", "Operation": "Repair", "LaborHours": 1.5}}
+      {{"Description": "Rear Bumper Cover", "Operation": "Remove / Replace", "PartId": "12345"}},
+      {{"Description": "Rear Bumper Reinforcement", "Operation": "Repair", "LaborHours": 1.5, "PartId": "12346"}}
     ],
     "Tail Light": [
-      {{"Description": "Tail Light Assembly - Right", "Operation": "Remove / Replace"}}
+      {{"Description": "Tail Light Assembly - Right", "Operation": "Remove / Replace", "PartId": "12347"}}
     ]
   }}
 }}
+
+**IMPORTANT**: 
+- The Description field must match exactly a part from the PSS data
+- Include PartId if you can identify it from the PSS data structure
+- If PartId is not immediately clear, you can omit it (it will be matched automatically)
+- Only include parts that exist in the PSS data
 </output_format>
 
 <final_instruction>
@@ -234,10 +244,9 @@ def format_retrieved_chunks(retrieved_chunks: list = None) -> str:
 
 
 def format_pss_data(pss_data: dict = None) -> str:
-    """Format PSS data dict into a string."""
+    """Format PSS data dict into a readable string with part IDs highlighted."""
     if not pss_data:
         return "Not provided"
-    import json
     return json.dumps(pss_data, indent=2)
 
 

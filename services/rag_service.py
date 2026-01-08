@@ -60,13 +60,14 @@ class EstimateOperationOutput(BaseModel):
     Description: str = Field(description="Part or operation description")
     Operation: str = Field(description="Type of operation")
     LaborHours: Optional[float] = Field(default=None, description="Labor hours - only for Repair operations")
+    PartId: Optional[str] = Field(default=None, description="ID of the part from PSS data that needs to be replaced or repaired")
 
 
 class EstimateOutput(BaseModel):
     """Structured output for estimate generation in approved_estimate format."""
     estimate: dict[str, list[dict]] = Field(
         default_factory=dict,
-        description="Estimate operations grouped by part category. Each key is a part category (e.g., 'Rear Bumper'), and each value is a list of operations with Description, Operation, and optionally LaborHours."
+        description="Estimate operations grouped by part category. Each key is a part category (e.g., 'Rear Bumper'), and each value is a list of operations with Description, Operation, optionally LaborHours, and PartId (ID from PSS data)."
     )
 
 
@@ -320,6 +321,88 @@ class RAGService:
         
         return vehicle_str + "damage to: " + "; ".join(parts) + "."
     
+    def _extract_pss_parts(self, pss_data: Optional[dict]) -> dict[str, dict]:
+        """
+        Extract all parts from PSS data into a searchable dictionary.
+        
+        Returns a dict mapping part descriptions to their IDs and details.
+        Format: {part_description: {"id": part_id, "full_description": full_desc, ...}}
+        """
+        if not pss_data:
+            return {}
+        
+        parts_map = {}
+        
+        try:
+            categories = pss_data.get("Categories", [])
+            for category in categories:
+                subcategories = category.get("SubCategories", [])
+                for subcategory in subcategories:
+                    parts = subcategory.get("Parts", [])
+                    for part in parts:
+                        part_details = part.get("PartDetails", [])
+                        for detail in part_details:
+                            # Use FullDescription as primary key
+                            full_desc = detail.get("FullDescription", "")
+                            part_id = detail.get("Id", "")
+                            
+                            if full_desc and part_id:
+                                parts_map[full_desc.lower()] = {
+                                    "id": str(part_id),
+                                    "full_description": full_desc,
+                                    "description": detail.get("Part", {}).get("Description", ""),
+                                    "available_operations": detail.get("AvailableOperations", []),
+                                }
+                            
+                            # Also map by Part Description for flexibility
+                            part_desc = detail.get("Part", {}).get("Description", "")
+                            if part_desc and part_id and part_desc.lower() not in parts_map:
+                                parts_map[part_desc.lower()] = {
+                                    "id": str(part_id),
+                                    "full_description": full_desc,
+                                    "description": part_desc,
+                                    "available_operations": detail.get("AvailableOperations", []),
+                                }
+        except Exception as e:
+            print(f"Warning: Error extracting PSS parts: {e}")
+        
+        return parts_map
+    
+    def _match_part_with_pss(
+        self,
+        part_description: str,
+        pss_parts_map: dict[str, dict],
+    ) -> Optional[str]:
+        """
+        Match a part description with PSS data and return the PartId.
+        
+        Uses fuzzy matching to find the best match.
+        """
+        if not part_description or not pss_parts_map:
+            return None
+        
+        part_lower = part_description.lower().strip()
+        
+        # Exact match first
+        if part_lower in pss_parts_map:
+            return pss_parts_map[part_lower]["id"]
+        
+        # Partial match - check if description contains key terms
+        for pss_desc, part_info in pss_parts_map.items():
+            # Check if part description contains key words from PSS part
+            pss_words = set(pss_desc.split())
+            desc_words = set(part_lower.split())
+            
+            # If significant overlap, consider it a match
+            if len(pss_words.intersection(desc_words)) >= 2:
+                return part_info["id"]
+            
+            # Check if PSS description contains the part description or vice versa
+            if part_lower in pss_desc or pss_desc in part_lower:
+                return part_info["id"]
+        
+        return None
+    
     def retrieve_similar_chunks(
         self,
         damage_description: str,
@@ -442,6 +525,9 @@ class RAGService:
             # Return empty estimate on error
             return GeneratedEstimate(estimate={})
         
+        # Extract PSS parts for matching
+        pss_parts_map = self._extract_pss_parts(pss_data)
+        
         # Convert to EstimateOperation objects and build the estimate dict
         from models.rag_models import EstimateOperation
         
@@ -451,11 +537,25 @@ class RAGService:
             for op in operations:
                 # Only include LaborHours if Operation is "Repair"
                 labor_hours = op.get('LaborHours') if op.get('Operation') == 'Repair' else None
+                
+                # Get PartId - use from LLM response if provided, otherwise match with PSS data
+                part_id = op.get('PartId')
+                part_description = op.get('Description', '')
+                
+                # If LLM didn't provide PartId, try to match with PSS data
+                if not part_id:
+                    part_id = self._match_part_with_pss(part_description, pss_parts_map)
+                    
+                    # If no match found, try to match with the category name
+                    if not part_id:
+                        part_id = self._match_part_with_pss(category, pss_parts_map)
+                
                 estimate_dict[category].append(
                     EstimateOperation(
                         Description=op.get('Description', 'Unknown'),
                         Operation=op.get('Operation', 'Unknown'),
                         LaborHours=labor_hours,
+                        PartId=part_id,
                     )
                 )
         

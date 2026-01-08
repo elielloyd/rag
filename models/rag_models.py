@@ -61,6 +61,7 @@ class EstimateOperation(BaseModel):
     Description: str = Field(description="Part or operation description")
     Operation: str = Field(description="Type of operation (Remove / Install, Remove / Replace, Repair, Overhaul, etc.)")
     LaborHours: Optional[float] = Field(default=None, description="Labor hours - only present for Repair operations")
+    PartId: Optional[str] = Field(default=None, description="ID of the part from PSS data that needs to be replaced or repaired")
     
     model_config = {"extra": "allow", "exclude_none": True}
 
