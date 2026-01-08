@@ -1,5 +1,7 @@
 """Prompts for RAG (Retrieval Augmented Generation) pipeline."""
 
+import json
+
 
 DAMAGE_DETECTION_PROMPT = """<role>
 You are an expert vehicle damage assessor specializing in automotive collision analysis.
