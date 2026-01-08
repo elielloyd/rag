@@ -37,7 +37,10 @@ os.environ['LANGSMITH_PROJECT'] = settings.langsmith_project or 'default'
 
 class ClassificationResult(BaseModel):
     """Structured output for image classification."""
-    side: Literal["front", "rear", "left", "right", "roof", "unknown"] = Field(
+    side: Literal[
+        "front", "rear", "left", "right", "roof", "interior", "unknown",
+        "engine / electrical", "steering / suspension", "a/c", "frame / floor"
+    ] = Field(
         description="Classified side of the vehicle"
     )
     confidence: float = Field(
@@ -73,7 +76,7 @@ class VehicleDamageService:
         self.model = ChatGoogleGenerativeAI(
             model=settings.gemini_model,
             api_key=settings.gemini_api_key,
-            temperature=1.0,
+            temperature=0.2,
             media_resolution="MEDIA_RESOLUTION_HIGH",
         )
         self.classification_model = self.model.with_structured_output(

@@ -37,7 +37,10 @@ os.environ['LANGSMITH_PROJECT'] = settings.langsmith_project or 'default'
 
 class DamageDetectionOutput(BaseModel):
     """Structured output for damage detection."""
-    side: Literal["front", "rear", "left", "right", "roof", "unknown"] = Field(
+    side: Literal[
+        "front", "rear", "left", "right", "roof", "unknown",
+       "interior", "engine / electrical", "steering / suspension", "a/c", "frame / floor"
+    ] = Field(
         description="Detected side of the vehicle"
     )
     has_damage: bool = Field(

@@ -12,6 +12,13 @@ class VehicleSide(str, Enum):
     LEFT = "left"
     RIGHT = "right"
     ROOF = "roof"
+    INTERIOR = "interior"
+    ENGINE_ELECTRICAL = "engine / electrical"
+    STEERING_SUSPENSION = "steering / suspension"
+    AC = "a/c"
+    FRAME_FLOOR = "frame / floor"
+
+    
     UNKNOWN = "unknown"
 
 
